@@ -10,5 +10,40 @@
  */
 function avviaSessione() {
     session_name('WEBMAIL_SID');
+    // HttpOnly: il cookie non è leggibile da JavaScript. SameSite=Lax: il
+    // browser non lo manda con le richieste POST partite da altri siti.
+    // Secure quando la pagina è in https (anche dietro un reverse proxy).
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'secure'   => $https,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    // Rifiuta id di sessione inventati da altri (session fixation)
+    ini_set('session.use_strict_mode', '1');
     session_start();
+}
+
+/**
+ * Vero se la richiesta arriva da una pagina di un altro sito: il browser lo
+ * dice con Sec-Fetch-Site (tutti i browser recenti) o, in mancanza, con
+ * Origin. Le azioni che cambiano qualcosa (POST) vanno rifiutate (CSRF).
+ */
+function richiestaDaAltroSito() {
+    $sito = $_SERVER['HTTP_SEC_FETCH_SITE'] ?? '';
+    if ($sito !== '') {
+        // "none" = indirizzo scritto a mano o segnalibro
+        return !in_array($sito, ['same-origin', 'none'], true);
+    }
+    $origine = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if ($origine === '' || $origine === 'null') {
+        return $origine === 'null';
+    }
+    $host = parse_url($origine, PHP_URL_HOST);
+    $porta = parse_url($origine, PHP_URL_PORT);
+    $atteso = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? ($_SERVER['HTTP_HOST'] ?? '');
+    return strcasecmp($host . ($porta ? ':' . $porta : ''), $atteso) !== 0;
 }

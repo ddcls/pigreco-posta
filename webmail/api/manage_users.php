@@ -70,8 +70,8 @@ class UserAccountManager {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return ['success' => false, 'error' => 'Email non valida'];
         }
-        if (strlen($password) < 6) {
-            return ['success' => false, 'error' => 'La password deve essere di almeno 6 caratteri'];
+        if (strlen($password) < 8) {
+            return ['success' => false, 'error' => 'La password deve essere di almeno 8 caratteri'];
         }
 
         $stmt = $this->conn->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
@@ -158,8 +158,8 @@ class UserAccountManager {
         if ($id <= 0) {
             return ['success' => false, 'error' => 'Account non specificato'];
         }
-        if (strlen($password) < 6) {
-            return ['success' => false, 'error' => 'La password deve essere di almeno 6 caratteri'];
+        if (strlen($password) < 8) {
+            return ['success' => false, 'error' => 'La password deve essere di almeno 8 caratteri'];
         }
 
         $hash = password_hash($password, PASSWORD_DEFAULT);

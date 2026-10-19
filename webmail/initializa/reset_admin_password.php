@@ -51,8 +51,8 @@ if (!$user) {
 }
 
 $password = promptHidden("Nuova password per '{$username}': ");
-if (strlen($password) < 6) {
-    fwrite(STDERR, "La password deve essere di almeno 6 caratteri\n");
+if (strlen($password) < 8) {
+    fwrite(STDERR, "La password deve essere di almeno 8 caratteri\n");
     exit(1);
 }
 if (promptHidden('Ripeti la password: ') !== $password) {

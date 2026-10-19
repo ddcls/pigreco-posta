@@ -45,22 +45,11 @@ try {
         unset($_SESSION['attachment_count']);
     }
     
-    // 4. Cancella eventuali file temporanei di inoltro (prefissati con fwd_)
-    $fwdFiles = glob(sys_get_temp_dir() . '/fwd_*');
+    // 4. I file temporanei degli allegati inoltrati (fwd_*) li cancella già
+    //    send_email.php alla fine dell'invio: qui non si toccano, perché
+    //    potrebbero essere di un altro utente che sta inviando in quel momento.
     $fwdCleared = 0;
-    
-    foreach ($fwdFiles as $fwdFile) {
-        if (is_file($fwdFile)) {
-            // Verifica che il file sia stato creato in questa sessione (ultimi 5 minuti)
-            $fileAge = time() - filemtime($fwdFile);
-            if ($fileAge < 300) { // 5 minuti
-                if (unlink($fwdFile)) {
-                    $fwdCleared++;
-                }
-            }
-        }
-    }
-    
+
     // Risultato
     $totalCleared = $attachmentsCleared + $filesCleared + $fwdCleared;
     
@@ -79,12 +68,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => $error_msg,
-        'debug' => [
-            'php_version' => PHP_VERSION,
-            'script' => basename(__FILE__),
-            'timestamp' => date('Y-m-d H:i:s')
-        ]
+        'error' => $error_msg
     ], JSON_UNESCAPED_UNICODE);
 }
 ?>

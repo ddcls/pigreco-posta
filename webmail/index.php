@@ -797,7 +797,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
 
                             <div class="form-row" id="formUserPasswordRow">
                                 <label>Password <span class="required">*</span></label>
-                                <input type="password" id="formUserPassword" name="password" placeholder="Minimo 6 caratteri" autocomplete="new-password">
+                                <input type="password" id="formUserPassword" name="password" placeholder="Minimo 8 caratteri" autocomplete="new-password">
                             </div>
 
                             <div class="compose-modal-actions">
@@ -930,6 +930,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <!-- Editor HTML per email -->
     <script src="email_editor.js"></script>
     <script src="archivio.js?v=2.2"></script>
+    <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
     <script src="contatti.js?v=2"></script>
     <script src="selezione.js?v=3"></script>
     <script src="ricerca.js?v=1"></script>
@@ -1032,6 +1033,39 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    /**
+     * Valore da mettere tra apici singoli dentro un onclick="..." e da
+     * rileggere con decodeURIComponent: encodeURIComponent lascia l'apice.
+     */
+    function encJs(v) {
+        return encodeURIComponent(v == null ? '' : String(v)).replace(/'/g, '%27');
+    }
+
+    /**
+     * HTML di un'email (non fidato) da inserire nella pagina, per esempio
+     * nell'editor quando si risponde o si inoltra: DOMPurify toglie script,
+     * attributi on*, link javascript: e altro. Via anche <base> (cambierebbe
+     * l'indirizzo di riferimento di tutta la pagina), <style> (cambierebbe lo
+     * stile della webmail) e i moduli.
+     */
+    function pulisciHtmlEmail(html) {
+        if (!html) return '';
+        if (typeof DOMPurify === 'undefined') {
+            // Libreria non caricata: meglio solo testo che HTML non pulito
+            return escapeHtml(html.replace(/<[^>]*>/g, ' '));
+        }
+        return DOMPurify.sanitize(html, {
+            FORBID_TAGS: ['style', 'base', 'link', 'meta', 'form', 'input', 'button', 'textarea', 'select', 'option'],
+            FORBID_ATTR: ['id', 'name', 'action', 'formaction']
+        });
+    }
+
+    /** Nome dell'allegato i-esimo dell'email aperta (per i pulsanti Scarica). */
+    function nomeAllegatoCorrente(i) {
+        const att = currentEmailData && currentEmailData.attachments && currentEmailData.attachments[i];
+        return att ? String(att.filename || '').replace(/[\r\n]/g, ' ').trim() : '';
     }
 
     /**
@@ -1294,7 +1328,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     if ((folderToUse === 'inbox' || folderToUse === 'sent') && displaySender) {
                         const extractedEmail = extractEmailAddress(displaySender);
                         if (extractedEmail) {
-                            emailListIcon = `<span class="email-list-icon" data-email="${extractedEmail}" title="Scrivi a ${extractedEmail}">
+                            emailListIcon = `<span class="email-list-icon" data-email="${escapeHtmlAttr(extractedEmail)}" title="Scrivi a ${escapeHtmlAttr(extractedEmail)}">
                                 <i class="fas fa-envelope"></i>
                             </span>`;
                         }
@@ -1310,25 +1344,25 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     
                     html += `
                         <div class="email-item ${isActive ? 'active' : ''} ${isNewClass}" 
-                            data-file="${email.file.replace(/"/g, '&quot;')}"
+                            data-file="${escapeHtmlAttr(email.file)}"
                             data-folder="${escapeHtmlAttr(folderToUse)}"
                             ${email.is_flagged ? 'data-importante="1"' : ''}
                             data-index="${index}">
                             <div class="email-item-header">
                                 <div class="email-sender-container">
-                                    <div class="email-sender-text" title="${displaySender.replace(/"/g, '&quot;')}">
-                                        ${displaySender}
+                                    <div class="email-sender-text" title="${escapeHtmlAttr(displaySender)}">
+                                        ${escapeHtml(displaySender)}
                                     </div>
                                     <div class="email-icons-container">
                                         ${emailListIcon}
                                         ${attachmentIcon}
                                     </div>
                                 </div>
-                                <div class="email-date">${email.date || 'Data sconosciuta'}</div>
+                                <div class="email-date">${escapeHtml(email.date || 'Data sconosciuta')}</div>
                             </div>
                             <div class="email-item-body">
-                                <div class="email-subject-preview" title="${(email.subject || '(nessun oggetto)').replace(/"/g, '&quot;')}">
-                                    ${email.subject || '(nessun oggetto)'}
+                                <div class="email-subject-preview" title="${escapeHtmlAttr(email.subject || '(nessun oggetto)')}">
+                                    ${escapeHtml(email.subject || '(nessun oggetto)')}
                                 </div>
                             </div>
                         </div>
@@ -1368,7 +1402,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     emailList.innerHTML = `
                         <div class="empty-state">
                             <i class="fas fa-${error.message?.includes('404') ? 'exclamation-triangle' : 'wifi-slash'}"></i>
-                            <p>${errorMsg}</p>
+                            <p>${escapeHtml(errorMsg)}</p>
                             <button onclick="loadEmails(${page}, ${escapeHtmlAttr(JSON.stringify(folderToUse))})" class="retry-btn">
                                 <i class="fas fa-redo"></i> Riprova
                             </button>
@@ -1610,25 +1644,27 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                             attachmentsHtml += '<div class="attachment-card' + (canPreview ? ' previewable' : '') + '">';
                             attachmentsHtml += '<div class="attachment-icon">' + icon + '</div>';
                             attachmentsHtml += '<div class="attachment-info">';
-                            attachmentsHtml += '<div class="attachment-name" title="' + safeName + '">' + truncateFilename(safeName, 25) + '</div>';
-                            attachmentsHtml += '<div class="attachment-meta"><span class="attachment-size">' + size + '</span><span class="attachment-type">' + fileType + '</span></div></div>';
+                            // Il nome del file viene dal mittente: sempre con escape. Nei
+                            // pulsanti non entra nel codice dell'onclick: lo si rilegge da
+                            // currentEmailData con l'indice dell'allegato.
+                            const nomeAttr = escapeHtmlAttr(safeName);
+                            const scarica = `downloadAttachmentViaFetch('${encJs(currentUser)}', '${encJs(file)}', '${i}', '${encJs(emailFolder)}', nomeAllegatoCorrente(${i}))`;
+                            attachmentsHtml += '<div class="attachment-name" title="' + nomeAttr + '">' + escapeHtml(truncateFilename(safeName, 25)) + '</div>';
+                            attachmentsHtml += '<div class="attachment-meta"><span class="attachment-size">' + escapeHtml(size) + '</span><span class="attachment-type">' + escapeHtml(fileType) + '</span></div></div>';
 
                             if (canPreview) {
                                 attachmentsHtml += '<div class="attachment-actions">';
-                                // Pulsante preview (già esistente)
-                                attachmentsHtml += `<button class="btn-preview" onclick="previewAttachment(${i})" title="Visualizza ${safeName}"><i class="fas fa-eye"></i></button>`;
-                                // ✅ PULSANTE DOWNLOAD CORRETTO
+                                attachmentsHtml += `<button class="btn-preview" onclick="previewAttachment(${i})" title="Visualizza ${nomeAttr}"><i class="fas fa-eye"></i></button>`;
                                 attachmentsHtml += `<button type="button" class="btn-download-small"
-                                    onclick="downloadAttachmentViaFetch('${encodeURIComponent(currentUser)}', '${encodeURIComponent(file)}', '${i}', '${encodeURIComponent(emailFolder)}', '${safeName.replace(/'/g, "\\'")}')"
-                                    title="Scarica ${safeName}">
+                                    onclick="${scarica}"
+                                    title="Scarica ${nomeAttr}">
                                     <i class="fas fa-download"></i>
                                 </button>`;
                                 attachmentsHtml += '</div>';
                             } else {
-                                // ✅ PULSANTE DOWNLOAD PER ALLEGATI NON PREVIEWABLE
                                 attachmentsHtml += `<button type="button" class="btn-download-attachment"
-                                    onclick="downloadAttachmentViaFetch('${encodeURIComponent(currentUser)}', '${encodeURIComponent(file)}', '${i}', '${encodeURIComponent(emailFolder)}', '${safeName.replace(/'/g, "\\'")}')"
-                                    title="Scarica ${safeName}">
+                                    onclick="${scarica}"
+                                    title="Scarica ${nomeAttr}">
                                     <i class="fas fa-download"></i> Scarica
                                 </button>`;
                             }
@@ -2321,7 +2357,8 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             `;
             
             const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
-            toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
+            // Il messaggio può contenere testo delle email (nomi di file, errori del server): sempre come testo
+            toast.innerHTML = `<i class="fas ${icon}"></i><span>${escapeHtml(message)}</span>`;
             
             document.body.appendChild(toast);
             
@@ -2790,15 +2827,15 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             previewContent.innerHTML = `
                 <div class="image-preview-container">
                     <img 
-                        src="${imageUrl}" 
-                        alt="Anteprima: ${attachment.filename}" 
+                        src="${escapeHtmlAttr(imageUrl)}" 
+                        alt="Anteprima: ${escapeHtmlAttr(attachment.filename)}" 
                         class="preview-image"
                         loading="lazy"
                         onerror="this.style.display='none'; this.parentElement.innerHTML='<p style=\'color:#ef4444; text-align:center;\'>❌ Immagine non caricabile</p>'">
                     <div class="image-actions">
                         <button type="button" class="btn-preview-action" 
-                            onclick="downloadAttachmentViaFetch('${encodeURIComponent(user)}', '${encodeURIComponent(file)}', '${encodeURIComponent(index)}', '${encodeURIComponent(folder)}', '${attachment.filename.replace(/'/g, "\\'")}')"
-                            title="Scarica ${attachment.filename}">
+                            onclick="downloadAttachmentViaFetch('${encJs(user)}', '${encJs(file)}', '${encJs(index)}', '${encJs(folder)}', decodeURIComponent('${encJs(attachment.filename)}'))"
+                            title="Scarica ${escapeHtmlAttr(attachment.filename)}">
                             <i class="fas fa-download"></i> Scarica
                         </button>
                     </div>
@@ -2854,19 +2891,19 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             previewContent.innerHTML = `
                 <div class="pdf-preview-container">
                     <iframe 
-                        src="${pdfUrl}" 
+                        src="${escapeHtmlAttr(pdfUrl)}" 
                         class="pdf-iframe" 
-                        title="Anteprima PDF: ${attachment.filename}"
+                        title="Anteprima PDF: ${escapeHtmlAttr(attachment.filename)}"
                         allow="fullscreen"
                         loading="lazy">
                     </iframe>
                     <div class="pdf-actions">
-                        <a href="${pdfUrl}" target="_blank" class="btn-preview-action" title="Apri in nuova finestra">
+                        <a href="${escapeHtmlAttr(pdfUrl)}" target="_blank" rel="noopener" class="btn-preview-action" title="Apri in nuova finestra">
                             <i class="fas fa-expand"></i> Apri a schermo intero
                         </a>
                         <button type="button" class="btn-preview-action" 
-                            onclick="downloadAttachmentViaFetch('${encodeURIComponent(user)}', '${encodeURIComponent(file)}', '${encodeURIComponent(index)}', '${encodeURIComponent(folder)}', '${attachment.filename.replace(/'/g, "\\'")}')"
-                            title="Scarica ${attachment.filename}">
+                            onclick="downloadAttachmentViaFetch('${encJs(user)}', '${encJs(file)}', '${encJs(index)}', '${encJs(folder)}', decodeURIComponent('${encJs(attachment.filename)}'))"
+                            title="Scarica ${escapeHtmlAttr(attachment.filename)}">
                             <i class="fas fa-download"></i> Scarica
                         </button>
                     </div>
@@ -3014,30 +3051,22 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     });
                     
                     // Pulisci HTML per sicurezza
-                    const cleanHtmlBody = (emailData.html_body || '')
-                        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                        .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
-                        .replace(/on\w+\s*=\s*'[^']*'/gi, '')
-                        // Un <base> nell'email originale altererebbe l'URL di riferimento
-                        // dell'intera pagina una volta inserito nell'editor (contenteditable
-                        // collegato al DOM), dirottando tutte le fetch relative dell'app.
-                        .replace(/<base\b[^>]*>/gi, '')
-                        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+                    const cleanHtmlBody = pulisciHtmlEmail(emailData.html_body || '');
                     
                     // ✅ CORPO INOLTRO HTML CON SEPARATORE E METADATI
                     forwardBody = `
             <div style="font-family: Arial, sans-serif; font-size: 13px; color: #5f6368; margin: 12px 0;">
                 <div style="font-weight: bold; margin-bottom: 4px;"><br><br>===================================<br>Da:</div>
-                <div style="margin-bottom: 8px;">${emailData.from || 'Sconosciuto'}</div>
+                <div style="margin-bottom: 8px;">${escapeHtml(emailData.from || 'Sconosciuto')}</div>
                 
                 <div style="font-weight: bold; margin-bottom: 4px;">Data:</div>
-                <div style="margin-bottom: 8px; color: #808080;">${emailData.date || formattedDate}</div>
+                <div style="margin-bottom: 8px; color: #808080;">${escapeHtml(emailData.date || formattedDate)}</div>
                 
                 <div style="font-weight: bold; margin-bottom: 4px;">Oggetto:</div>
-                <div style="margin-bottom: 8px;">${emailData.subject || '(nessun oggetto)'}</div>
+                <div style="margin-bottom: 8px;">${escapeHtml(emailData.subject || '(nessun oggetto)')}</div>
                 
                 <div style="font-weight: bold; margin-bottom: 4px;">A:</div>
-                <div style="margin-bottom: 16px;">${emailData.to || 'Sconosciuto'}</div>
+                <div style="margin-bottom: 16px;">${escapeHtml(emailData.to || 'Sconosciuto')}</div>
                 
                 <div style="border-top: 1px solid #e0e0e0; padding-top: 12px; margin-top: 8px;">
                     ${cleanHtmlBody || '<p style="margin: 0; color: #5f6368;">(nessun contenuto)</p>'}
@@ -3340,7 +3369,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 div.className = 'attachment-item';
                 div.innerHTML = `
                     <i class="fas fa-paperclip"></i>
-                    <span>${file.name} (${formatFileSize(file.size)})</span>
+                    <span>${escapeHtml(file.name)} (${formatFileSize(file.size)})</span>
                     <button type="button" class="remove-attachment" data-index="${index}" onclick="removeAttachment(this)">×</button>
                 `;
                 preview.appendChild(div);
@@ -3352,8 +3381,8 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 div.className = 'attachment-item attachment-item-forwarded';
                 div.innerHTML = `
                     <i class="fas fa-share" style="color:#667eea;"></i>
-                    <span>${att.filename} (${formatFileSize(att.size)})</span>
-                    <span class="attachment-badge-fwd">${att.badge || 'inoltrato'}</span>
+                    <span>${escapeHtml(att.filename)} (${formatFileSize(att.size)})</span>
+                    <span class="attachment-badge-fwd">${escapeHtml(att.badge || 'inoltrato')}</span>
                     <button type="button" class="remove-attachment" onclick="removeForwardedAttachment(${att.index})">×</button>
                 `;
                 preview.appendChild(div);
@@ -3791,32 +3820,24 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 const originalSubjectClean = originalSubject.replace(/^Re:\s*/, '');
                 
                 // Pulisci HTML per sicurezza e compatibilità
-                const cleanHtmlBody = originalHtmlBody
-                    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
-                    .replace(/on\w+\s*=\s*'[^']*'/gi, '')
-                    // Un <base> nell'email originale altererebbe l'URL di riferimento
-                    // dell'intera pagina una volta inserito nell'editor (contenteditable
-                    // collegato al DOM), dirottando tutte le fetch relative dell'app.
-                    .replace(/<base\b[^>]*>/gi, '')
-                    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+                const cleanHtmlBody = pulisciHtmlEmail(originalHtmlBody);
                 
                 // ✅ SEPARATORE HTML: linea di "=" + spazio + citazione con stile standard
                 replyBody = `
         <div style="margin-bottom: 12px; color: #888; font-family: monospace; font-size: 13px;">${separatorLine}</div>
         <div style="font-family: Arial, sans-serif; font-size: 13px; color: #5f6368; border-left: 2px solid #d1d1d1; padding-left: 12px; margin: 12px 0;">
             <div style="margin-bottom: 8px;">
-                <span style="font-weight: bold;">${fromName}</span> 
-                <span style="color: #808080;">&lt;${emailData.from || 'Sconosciuto'}&gt;</span>
+                <span style="font-weight: bold;">${escapeHtml(fromName)}</span> 
+                <span style="color: #808080;">&lt;${escapeHtml(emailData.from || 'Sconosciuto')}&gt;</span>
             </div>
             <div style="margin-bottom: 8px; color: #808080;">
-                ${formattedDate}
+                ${escapeHtml(formattedDate)}
             </div>
             <div style="margin-bottom: 8px;">
-                <span style="font-weight: bold;">A:</span> ${toName}
+                <span style="font-weight: bold;">A:</span> ${escapeHtml(toName)}
             </div>
             <div style="margin-bottom: 8px;">
-                <span style="font-weight: bold;">Oggetto:</span> ${originalSubjectClean}
+                <span style="font-weight: bold;">Oggetto:</span> ${escapeHtml(originalSubjectClean)}
             </div>
             <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
                 ${cleanHtmlBody || '<p style="margin: 0; color: #5f6368;">(nessun contenuto)</p>'}
@@ -4567,8 +4588,8 @@ function toggleSettingsDropdown(event) {
 
         if (!id) {
             const password = document.getElementById('formUserPassword').value;
-            if (!password || password.length < 6) {
-                alert('Password obbligatoria (minimo 6 caratteri) per i nuovi account');
+            if (!password || password.length < 8) {
+                alert('Password obbligatoria (minimo 8 caratteri) per i nuovi account');
                 return;
             }
             formData.append('password', password);
@@ -4594,10 +4615,10 @@ function toggleSettingsDropdown(event) {
     }
 
     function changeUserAccountPassword(id, username) {
-        const password = prompt(`Nuova password per "${username}" (minimo 6 caratteri):`);
+        const password = prompt(`Nuova password per "${username}" (minimo 8 caratteri):`);
         if (password === null) return; // Annullato
-        if (password.length < 6) {
-            alert('La password deve essere di almeno 6 caratteri');
+        if (password.length < 8) {
+            alert('La password deve essere di almeno 8 caratteri');
             return;
         }
 

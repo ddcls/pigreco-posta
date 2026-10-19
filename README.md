@@ -65,7 +65,7 @@ Data lives in `dati/` (MySQL and mailboxes). **Back it up** together with `.env`
 - Put the webmail behind HTTPS (a reverse proxy such as Caddy, nginx or Traefik) before exposing it to the Internet. Keep the management page (port 8083) on the LAN only.
 - IMAP/SMTP passwords are stored encrypted (AES-256-GCM, key in `.env`). The HTML body of emails is shown in a sandboxed iframe, without scripts.
 - The Dovecot certificate created at first start is self-signed. Replace `dati/posta/config/ssl/cert.pem` and `key.pem` with a real one before using the mail from phones outside the office.
-- Found a vulnerability? Please write to the maintainer privately instead of opening a public issue.
+- Found a vulnerability? See [SECURITY.md](SECURITY.md): please report it privately, not in a public issue.
 
 ## PiGreco Archivio
 

@@ -8,6 +8,14 @@ require_once __DIR__ . '/lib/session.php';
 avviaSessione();
 require_once __DIR__ . '/config/db_config.php';
 
+// Protezione CSRF: nessuna azione (POST) partita da pagine di altri siti
+if (!in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true) && richiestaDaAltroSito()) {
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => false, 'error' => 'Richiesta non consentita (proveniente da un altro sito)'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 /**
  * Interrompe una richiesta non autenticata. La pagina principale viene
  * rimandata al login; gli endpoint chiamati via fetch ricevono invece un

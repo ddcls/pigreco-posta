@@ -59,7 +59,7 @@ I dati sono in `dati/` (MySQL e caselle). **Fanne il backup** insieme a `.env`: 
 - Prima di esporre la webmail su Internet mettila dietro HTTPS, con un reverse proxy come Caddy, nginx o Traefik. La pagina di gestione (porta 8083) va lasciata solo nella rete dell'ufficio.
 - Le password IMAP/SMTP sono salvate cifrate (AES-256-GCM, chiave in `.env`). Il testo HTML delle email è mostrato in un iframe isolato, senza script.
 - Il certificato di Dovecot creato al primo avvio è autofirmato. Sostituisci `dati/posta/config/ssl/cert.pem` e `key.pem` con uno vero prima di usare la posta dai telefoni fuori dall'ufficio.
-- Hai trovato una vulnerabilità? Scrivi in privato al responsabile del progetto invece di aprire una segnalazione pubblica.
+- Hai trovato una vulnerabilità? Vedi [SECURITY.md](SECURITY.md): segnalala in privato, non in una issue pubblica.
 
 ## PiGreco Archivio
 

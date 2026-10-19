@@ -211,7 +211,7 @@ function clearFormatting() {
     
     if (confirm('Cancellare tutta la formattazione? Il testo rimarrà ma perderà stili e formattazione.')) {
         const textOnly = emailEditor.textContent || emailEditor.innerText;
-        emailEditor.innerHTML = `<div>${textOnly.replace(/\n/g, '<br>')}</div>`;
+        emailEditor.innerHTML = `<div>${escapeHtml(textOnly).replace(/\n/g, '<br>')}</div>`;
         emailEditor.focus();
         updateHiddenTextarea();
     }

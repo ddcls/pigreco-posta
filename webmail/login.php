@@ -1,7 +1,7 @@
 <?php
-// DEBUG: Abilita tutti gli errori
+// Gli errori vanno nel log, mai nella pagina (rivelerebbero percorsi e dettagli)
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
 require_once __DIR__ . '/lib/session.php';
@@ -23,13 +23,49 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
 $error = '';
 $success = '';
 
+/**
+ * Freno ai tentativi a caso (access_log, scritto da logAccess): login rifiutato
+ * dopo 10 accessi falliti in 15 minuti dallo stesso indirizzo IP, o dopo 30
+ * sullo stesso utente da indirizzi diversi. Soglia per utente più alta: chi
+ * sbaglia apposta non deve poter chiudere fuori il vero utente. I tentativi
+ * rifiutati ("blocked") non allungano il blocco.
+ */
+function troppiTentativiFalliti($username) {
+    require_once __DIR__ . '/config/db_config.php';
+    $conn = getDBConnection();
+    if (!$conn) {
+        return false;
+    }
+    $ip = substr($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0', 0, 45);
+    $utente = substr($username, 0, 50);
+    $stmt = $conn->prepare("SELECT
+            SUM(ip_address = ?) AS da_ip,
+            SUM(username = ?) AS su_utente
+        FROM access_log
+        WHERE success = 0 AND action LIKE 'failed%'
+          AND attempt_time > NOW() - INTERVAL 15 MINUTE");
+    if (!$stmt) {
+        return false;
+    }
+    $stmt->bind_param('ss', $ip, $utente);
+    $stmt->execute();
+    $riga = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return (int)($riga['da_ip'] ?? 0) >= 10 || (int)($riga['su_utente'] ?? 0) >= 30;
+}
+
 // Gestione POST login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (empty($username) || empty($password)) {
+    if (richiestaDaAltroSito()) {
+        $error = 'Richiesta non valida: apri la pagina di accesso e riprova';
+    } elseif (empty($username) || empty($password)) {
         $error = 'Username e password sono obbligatori';
+    } elseif (troppiTentativiFalliti($username)) {
+        $error = 'Troppi tentativi falliti: riprova tra qualche minuto';
+        logAccess($username, false, 'blocked');
     } else {
         // Carica configurazione database
         require_once 'config/db_config.php';
@@ -56,6 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$user['attivo']) {
                         $error = 'Account disattivato';
                     } elseif (password_verify($password, $user['password'])) {
+                        // Nuovo id di sessione: quello di prima del login non vale più
+                        session_regenerate_id(true);
                         // Imposta sessione
                         $_SESSION['logged_in'] = true;
                         $_SESSION['user_id'] = $user['id'];

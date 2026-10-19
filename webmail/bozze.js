@@ -209,12 +209,8 @@ const BozzeEmail = {
             const ed = document.getElementById('emailEditor');
             const html = (d.html_body || '').trim();
             if (html && ed) {
-                ed.innerHTML = html
-                    .replace(/<meta\b[^>]*>/gi, '')
-                    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-                    .replace(/<base\b[^>]*>/gi, '')
-                    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+                // La bozza è HTML preso dalla casella: va pulito come quello delle email
+                ed.innerHTML = pulisciHtmlEmail(html);
                 toggleFormat('html');
             } else if (ed) {
                 ed.innerHTML = escapeHtml(d.text_body || '').replace(/\n/g, '<br>') || '<div><br></div>';
