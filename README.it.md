@@ -51,7 +51,7 @@ Poi:
 1. **Gestione caselle**, `http://<server>:8083`: aggiungi le caselle (indirizzo, accesso al gestore). La pagina mostra **una sola volta** la **password locale** di ogni casella.
 2. **Webmail**, `http://<server>:8080/webmail/`: entra come `admin` e vai su *Impostazioni › Account Email*. Per ogni casella imposta server IMAP `posta`, porta 143, STARTTLS, utente = indirizzo email, password = password locale. Per l'SMTP usa il server del gestore.
 
-La guida completa è in [`manuale/manuale.md`](manuale/manuale.md).
+Su un server **Debian** appena installato (sudo, IP fisso, Docker, installazione, backup) segui la guida passo passo [`INSTALLA-DEBIAN.md`](INSTALLA-DEBIAN.md). L'uso della posta è nel manuale, [`manuale/manuale.md`](manuale/manuale.md).
 
 **Caselle Microsoft** (hotmail/outlook/live/Microsoft 365): accettano solo OAuth2 e non si possono copiare. Gmail, Yahoo e iCloud vogliono una *password per le app*.
 

@@ -3,8 +3,8 @@
 #
 #   ./installa.sh
 #
-# 1. crea .env da .env.example con password e chiave di cifratura casuali
-#    (se .env esiste già non lo tocca);
+# 1. crea .env da .env.example (se non c'è) e vi scrive password e chiave
+#    di cifratura casuali al posto di quelle vuote;
 # 2. costruisce e avvia i container;
 # 3. chiede la password dell'amministratore della webmail e quella della
 #    pagina "Gestione caselle".
@@ -22,19 +22,31 @@ fi
 
 casuale() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
 
+if ! command -v openssl >/dev/null 2>&1; then
+    echo "Serve openssl per generare le password (es. apt install openssl)." >&2
+    exit 1
+fi
 if [[ -f .env ]]; then
     echo "Uso il file .env esistente."
 else
-    if ! command -v openssl >/dev/null 2>&1; then
-        echo "Serve openssl per generare le password (es. apt install openssl)." >&2
-        exit 1
-    fi
-    sed -e "s|^DB_ROOT_PASS=.*|DB_ROOT_PASS=$(casuale 32)|" \
-        -e "s|^WEBMAIL_DB_PASS=.*|WEBMAIL_DB_PASS=$(casuale 32)|" \
-        -e "s|^WEBMAIL_ENCRYPTION_KEY=.*|WEBMAIL_ENCRYPTION_KEY=$(openssl rand -base64 32)|" \
-        .env.example > .env
+    cp .env.example .env
     chmod 600 .env
-    echo "Creato .env con password casuali (conservane una copia: contiene la"
+    echo "Creato .env da .env.example."
+fi
+# Password e chiave lasciate vuote (anche in un .env copiato e modificato a
+# mano, es. per mettere i dati su un altro disco): generate qui. Quelle già
+# scritte non si toccano.
+generate=0
+for coppia in "DB_ROOT_PASS:$(casuale 32)" "WEBMAIL_DB_PASS:$(casuale 32)" \
+              "WEBMAIL_ENCRYPTION_KEY:$(openssl rand -base64 32)"; do
+    var="${coppia%%:*}"
+    if grep -qE "^$var=$" .env; then
+        sed -i "s|^$var=$|$var=${coppia#*:}|" .env
+        generate=1
+    fi
+done
+if (( generate )); then
+    echo "Password casuali scritte in .env (conservane una copia: contiene la"
     echo "chiave che cifra le password delle caselle)."
 fi
 

@@ -69,7 +69,8 @@ I due login sono **separati**:
 
 - Un server Linux (va bene anche un PC sempre acceso) con **Docker** e il plugin **compose**:
   il comando `docker compose version` deve rispondere. Istruzioni:
-  <https://docs.docker.com/engine/install/>.
+  <https://docs.docker.com/engine/install/>. Su un server **Debian** appena installato c'è la guida
+  passo passo [`INSTALLA-DEBIAN.md`](../INSTALLA-DEBIAN.md), da Debian vuoto alla posta funzionante.
 - **Spazio su disco** per la posta: almeno quanto occupano oggi le caselle dai gestori, meglio il
   doppio.
 - Porte libere sul server: **8080** (webmail), **8083** (gestione caselle), **143** e **993**
