@@ -1,0 +1,16 @@
+# Password e chiave di cifratura: mai nel repository
+.env
+
+# Dati (database, caselle copiate, certificati)
+dati/
+
+# Configurazione locale della webmail installata senza Docker
+webmail/config/config.local.php
+webmail/config/env_path.local.php
+
+*.log
+.DS_Store
+Thumbs.db
+*.swp
+__pycache__/
+*.pyc

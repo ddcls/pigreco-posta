@@ -1,0 +1,145 @@
+/*
+ * Cartelle dell'account (cartelle.js): pulsante ⋯, menu, "Nuova cartella"
+ * e trascinamento delle email sulle cartelle (selezione.js).
+ * Usa la base delle finestre di style.css e i colori di temi.css.
+ */
+
+/* Riga cartella + pulsante ⋯ */
+.cartella-riga { position: relative; display: flex; align-items: center; }
+.cartella-riga > .folder-btn,
+.cartella-riga > .cartella-gruppo { flex: 1; min-width: 0; padding-right: 32px; }
+.cartella-menu-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--raggio);
+    background: transparent;
+    color: var(--testo-tenue);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.cartella-riga:hover .cartella-menu-btn,
+.cartella-menu-btn:focus-visible,
+.cartella-menu-btn.aperto { opacity: 1; }
+.cartella-menu-btn:hover,
+.cartella-menu-btn.aperto { background: var(--pannello-scuro); color: var(--testo); }
+/* Senza mouse (telefono, tablet) il pulsante si vede sempre */
+@media (hover: none) {
+    .cartella-menu-btn { opacity: 1; }
+}
+
+/* Menu */
+.cartella-menu {
+    position: fixed;
+    z-index: 3000;
+    min-width: 200px;
+    max-width: 280px;
+    padding: 4px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    box-shadow: var(--ombra);
+}
+.cartella-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: var(--raggio);
+    background: transparent;
+    color: var(--testo);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.cartella-menu button i { width: 16px; text-align: center; color: var(--accento); }
+.cartella-menu button:hover,
+.cartella-menu button:focus-visible { background: var(--hover); outline: none; }
+.cartella-menu button.pericolo,
+.cartella-menu button.pericolo i { color: var(--pericolo); }
+.cartella-menu-nota { margin: 4px 10px 6px; font-size: 12px; color: var(--testo-tenue); }
+
+/* "Nuova cartella" */
+.btn-nuova-cartella {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border: 1px dashed var(--bordo);
+    border-radius: var(--raggio);
+    background: none;
+    color: var(--testo-tenue);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.btn-nuova-cartella i { width: 18px; text-align: center; }
+.btn-nuova-cartella:hover { color: var(--accento); border-color: var(--accento); background: var(--hover); }
+
+/* Pannello a sola icona (tablet): niente ⋯ e niente scritta, salvo col pannello aperto */
+@media (max-width: 960px) {
+    body:not(.cartelle-aperte) .cartella-menu-btn { display: none; }
+    body:not(.cartelle-aperte) .cartella-riga > .folder-btn { padding-right: 10px; }
+    body:not(.cartelle-aperte) .btn-nuova-cartella { justify-content: center; border-style: solid; }
+    body:not(.cartelle-aperte) .btn-nuova-cartella span { display: none; }
+}
+
+/* Finestra nome */
+.cartella-modal { max-width: 440px; }
+.cartella-corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 20px 18px;
+    color: var(--testo);
+}
+.cartella-corpo label { font-weight: 700; margin-top: 6px; }
+.cartella-corpo input,
+.cartella-corpo select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--testo);
+    font: inherit;
+}
+.cartella-nota { margin: 4px 0 0; font-size: 12px; color: var(--testo-tenue); }
+.cartella-nota.avviso {
+    padding: 8px 10px;
+    border-radius: var(--raggio);
+    background: var(--avviso-chiaro);
+    color: var(--testo);
+}
+.cartella-azioni { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+/* Trascinamento delle email su una cartella */
+.folder-btn.drop-qui {
+    background: var(--selezione);
+    color: var(--accento);
+    box-shadow: inset 0 0 0 2px var(--accento);
+}
+.trascina-etichetta {
+    position: fixed;
+    top: -100px;
+    left: -100px;
+    padding: 6px 10px;
+    border-radius: var(--raggio);
+    background: var(--accento);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}

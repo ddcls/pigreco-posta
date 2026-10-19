@@ -1,0 +1,141 @@
+/*
+ * Selezione multipla e "Sposta in…" (selezione.js).
+ * Usa la base delle finestre di style.css e i colori di temi.css.
+ */
+
+/* Casella di spunta a sinistra di ogni email */
+#emailList .email-item[data-file] { padding-left: 38px; }
+.sel-casella {
+    position: absolute;
+    left: 6px;
+    top: 0;
+    bottom: 0;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.sel-casella input,
+.sel-tutte input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--accento);
+    cursor: pointer;
+}
+#emailList .email-item.selezionata { background: var(--selezione); }
+#emailList .email-item.selezionata:hover { background: var(--pannello-scuro); }
+
+/* Barra sopra l'elenco */
+.barra-selezione {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 4px 8px 4px 17px;
+    border-bottom: 1px solid var(--bordo);
+    font-size: 13px;
+    color: var(--testo-tenue);
+}
+.barra-selezione[hidden] { display: none; }
+.barra-selezione.attiva { background: var(--pannello); color: var(--testo); }
+.barra-selezione.in-corso { opacity: .6; pointer-events: none; }
+.sel-tutte {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.barra-selezione.attiva .sel-tutte span { font-weight: 700; }
+.sel-azioni {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-left: auto;
+    justify-content: flex-end;
+}
+.sel-azioni button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 8px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--testo);
+    font: inherit;
+    cursor: pointer;
+}
+.sel-azioni button:hover { background: var(--hover); border-color: var(--accento); }
+.sel-azioni button.pericolo { color: var(--pericolo); }
+.sel-azioni button.pericolo:hover { background: var(--pericolo-chiaro); border-color: var(--pericolo); }
+/* Le scritte dei pulsanti solo se la barra è abbastanza larga */
+.barra-selezione { container-type: inline-size; }
+@container (max-width: 520px) {
+    .sel-azioni button span { display: none; }
+}
+
+/* Finestra "Sposta in…" */
+.sposta-modal { max-width: 420px; }
+.sposta-corpo {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 12px 14px;
+    color: var(--testo);
+}
+.sposta-attesa { color: var(--testo-tenue); padding: 8px; }
+.sposta-elenco { display: flex; flex-direction: column; gap: 2px; }
+.sposta-voce {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px 8px calc(10px + var(--livello, 0) * 18px);
+    border: 0;
+    border-radius: var(--raggio);
+    background: transparent;
+    color: var(--testo);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.sposta-voce i { width: 16px; text-align: center; color: var(--accento); }
+.sposta-voce span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sposta-voce small { color: var(--testo-tenue); }
+button.sposta-voce:hover:not(:disabled) { background: var(--hover); }
+button.sposta-voce:focus-visible { outline: 2px solid var(--accento); outline-offset: -2px; }
+.sposta-voce:disabled { cursor: default; opacity: .6; }
+.sposta-voce.gruppo { cursor: default; color: var(--testo-tenue); }
+.sposta-voce.gruppo i { color: var(--testo-tenue); }
+
+/* Stella ⭐ (email importanti, \Flagged) a destra dell'oggetto */
+:root { --stella: #e0a100; }
+#emailList .email-item-body { display: flex; align-items: center; gap: 6px; }
+#emailList .email-item-body .email-subject-preview { flex: 1; min-width: 0; }
+.stella {
+    flex-shrink: 0;
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--raggio);
+    background: transparent;
+    color: var(--testo-tenue);
+    font-size: 13px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.email-item:hover .stella,
+.stella.attiva,
+.stella:focus-visible { opacity: 1; }
+.stella.attiva { color: var(--stella); }
+.stella:hover { background: var(--pannello-scuro); color: var(--stella); }
+@media (hover: none) {
+    .stella { opacity: .55; }
+    .stella.attiva { opacity: 1; }
+}
+.importante-btn.attiva i { color: var(--stella); }

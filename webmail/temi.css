@@ -1,0 +1,67 @@
+/*
+ * Temi di colore di PiGreco Posta.
+ *
+ * Ogni tema ridefinisce solo queste variabili; il tema è indicato
+ * dall'attributo data-tema su <html> (impostato da PHP, vedi lib/tema.php).
+ * "marrone" è il tema di PiGreco Archivio e quello predefinito.
+ * Per aggiungere un tema: un blocco qui sotto + una voce in lib/tema.php.
+ */
+:root {
+    --accento:           #8B4513;
+    --accento-scuro:     #654321;
+    --testo-secondario:  #5a4a3a;
+    --pannello:          #f5f0eb;
+    --pannello-scuro:    #e8e0d8;
+    --bordo:             #e2d9cf;
+    --sfondo:            #fbf9f6;
+    --selezione:         #f3e6d8;
+    --hover:             #f8f2ec;
+    --bianco:            #ffffff;
+    --testo:             #2c2620;
+    --testo-tenue:       #8a7d70;
+    --pericolo:          #c0392b;
+    --pericolo-chiaro:   #fdecea;
+    --ok:                #27ae60;
+    --ok-chiaro:         #eef7f0;
+    --avviso-chiaro:     #fff8e1;
+    --raggio:            6px;
+    --ombra:             0 8px 24px rgba(40, 30, 20, .15);
+    --ombra-forte:       0 20px 60px rgba(0, 0, 0, .3);
+    --font-titoli:       'Playfair Display', Georgia, 'Times New Roman', serif;
+    --font-testo:        'Lato', 'Segoe UI', Arial, sans-serif;
+}
+
+[data-tema="blu"] {
+    --accento: #1f5fa8; --accento-scuro: #174a84; --testo-secondario: #3a4a5c;
+    --pannello: #eef3f9; --pannello-scuro: #dfe8f2; --bordo: #d6e0ec;
+    --sfondo: #f8fafd; --selezione: #dde9f6; --hover: #f3f7fc;
+    --testo: #1f2a36; --testo-tenue: #74808d;
+}
+
+[data-tema="arancione"] {
+    --accento: #c25410; --accento-scuro: #9a420b; --testo-secondario: #6a4a35;
+    --pannello: #fbf1e9; --pannello-scuro: #f3e1d3; --bordo: #efdccd;
+    --sfondo: #fdfaf7; --selezione: #fbe2cf; --hover: #fdf5ef;
+    --testo: #2e241d; --testo-tenue: #8d7b6d;
+}
+
+[data-tema="verde"] {
+    --accento: #2e7d4f; --accento-scuro: #22603c; --testo-secondario: #3c5446;
+    --pannello: #eef6f1; --pannello-scuro: #dcebe1; --bordo: #d3e5d9;
+    --sfondo: #f8fbf9; --selezione: #d8ecdf; --hover: #f3f9f5;
+    --testo: #1f2b24; --testo-tenue: #73847a;
+}
+
+[data-tema="bordeaux"] {
+    --accento: #8e2440; --accento-scuro: #6d1a31; --testo-secondario: #5c3a44;
+    --pannello: #f8eef1; --pannello-scuro: #efdde3; --bordo: #ead6dc;
+    --sfondo: #fcf8f9; --selezione: #f1d9e0; --hover: #fbf3f5;
+    --testo: #2d2125; --testo-tenue: #8a7a7f;
+}
+
+[data-tema="grafite"] {
+    --accento: #3d4852; --accento-scuro: #2a323a; --testo-secondario: #444d55;
+    --pannello: #f1f3f5; --pannello-scuro: #e2e6ea; --bordo: #dde2e6;
+    --sfondo: #fafbfc; --selezione: #e1e6ea; --hover: #f5f7f8;
+    --testo: #23282d; --testo-tenue: #7b848c;
+}

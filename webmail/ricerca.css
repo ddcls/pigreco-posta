@@ -1,0 +1,79 @@
+/*
+ * Ricerca sul server (ricerca.js): attesa, cartella dei risultati,
+ * "Altri risultati", "Annulla". Colori di temi.css.
+ */
+
+.ricerca-attesa {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--testo-tenue);
+}
+.ricerca-attesa .spinner { margin: 0 auto 12px; }
+.ricerca-attesa small { display: block; margin-top: 4px; }
+
+.ricerca-cartella {
+    max-width: 110px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: var(--pannello-scuro);
+    color: var(--testo-secondario);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ricerca-altri {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: calc(100% - 28px);
+    margin: 12px 14px 16px;
+    padding: 9px 12px;
+    border: 1px dashed var(--bordo);
+    border-radius: var(--raggio);
+    background: none;
+    color: var(--accento);
+    font: inherit;
+    cursor: pointer;
+}
+.ricerca-altri:hover { background: var(--hover); border-color: var(--accento); }
+
+.ricerca-annulla {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accento);
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ricerca-annulla:hover { text-decoration: underline; }
+#sidebar .pagination-controls[hidden] { display: none; }
+
+/* Bozze (bozze.js): "Salva bozza" e stato nella finestra di scrittura */
+.btn-salva-bozza {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--testo);
+    font: inherit;
+    cursor: pointer;
+}
+.btn-salva-bozza:hover { background: var(--hover); border-color: var(--accento); }
+.btn-salva-bozza:disabled { opacity: .6; cursor: wait; }
+.stato-bozza {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--testo-tenue);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

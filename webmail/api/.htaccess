@@ -1,0 +1,17 @@
+# Permetti accesso a manage_accounts.php e manage_maildir_users.php
+<Files "manage_accounts.php">
+    Require all granted
+</Files>
+<Files "manage_maildir_users.php">
+    Require all granted
+</Files>
+
+# Blocca accesso ad altri file PHP nella cartella api (sicurezza)
+<FilesMatch "^(?!(manage_accounts|manage_maildir_users)\.php$).*\.php$">
+    Require all denied
+</FilesMatch>
+
+# Blocca accesso a file di configurazione
+<FilesMatch "\.(json|log|ini|conf)$">
+    Require all denied
+</FilesMatch>

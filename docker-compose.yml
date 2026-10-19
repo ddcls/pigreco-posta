@@ -1,0 +1,132 @@
+# PiGreco Posta: webmail + copia locale delle caselle dei gestori.
+#
+# Installazione:   ./installa.sh          (crea .env con password casuali e avvia)
+# A mano:          cp .env.example .env   (compilare le password), poi
+#                  docker compose up -d --build
+#
+# Servizi (una sola rete interna; i comandi si lanciano da questa cartella):
+#   webmail             la webmail, http://<server>:${WEBMAIL_PORT}/webmail/
+#   db                  MySQL della webmail (nessuna porta pubblicata)
+#   posta               Dovecot: IMAP sulla copia locale delle caselle
+#   posta-sincronizza   mbsync: copia dal gestore email nuove e flag, non cancella mai
+#   posta-gestione      pagina "Gestione caselle", http://<server>:${POSTA_GESTIONE_PORT}
+#
+# Rete "pigreco" (nome fisso): webmail e posta vi sono collegate perché
+# PiGreco Archivio, installato più tardi sullo stesso server, possa
+# raggiungerle e pubblicare la webmail sul proprio indirizzo (vedi README).
+name: pigreco-posta
+
+x-posta: &posta
+  build: ./posta
+  image: pigreco-posta/posta:locale
+  restart: unless-stopped
+  volumes:
+    # Creata e assegnata a vmail (5000:5000, 750) dal container al primo avvio
+    - ${POSTA_DIR:-./dati/posta}:/srv/posta
+  environment:
+    - TZ=${TZ:-Europe/Rome}
+    - POSTA_NOME_SERVER=${POSTA_NOME_SERVER:-posta.locale}
+    - POSTA_INTERVALLO=${POSTA_INTERVALLO:-300}
+    - POSTA_IMAP_PORT=${POSTA_IMAP_PORT:-143}
+    - POSTA_IMAPS_PORT=${POSTA_IMAPS_PORT:-993}
+
+services:
+  # ============================================
+  # WEBMAIL
+  # Il codice è la cartella webmail/, montata in sola lettura: le modifiche
+  # sono attive subito. Database, utente MySQL, tabelle e utente "admin"
+  # sono creati al primo avvio (docker/webmail/entrypoint.sh).
+  # Password dell'admin:  ./scripts/password-webmail.sh [utente]
+  # ============================================
+  webmail:
+    build: ./docker/webmail
+    image: pigreco-posta/webmail:locale
+    restart: unless-stopped
+    ports:
+      - "${WEBMAIL_PORT:-8080}:80"
+    volumes:
+      - ./webmail:/var/www/webmail:ro
+    environment:
+      - TZ=${TZ:-Europe/Rome}
+      - APP_TIMEZONE=${TZ:-Europe/Rome}
+      - WEBMAIL_CONFIG_FILE=/etc/webmail/config.php
+      - DB_HOST=db
+      - DB_NAME=${WEBMAIL_DB_NAME:-webmail_digitale}
+      - DB_USER=${WEBMAIL_DB_USER:-webmail_user}
+      - DB_PASS=${WEBMAIL_DB_PASS:-}
+      # Solo per creare database e utente al primo avvio
+      - DB_ROOT_PASS=${DB_ROOT_PASS:-}
+      # Cifra le password IMAP/SMTP salvate: NON cambiarla dopo aver creato gli account
+      - MAIL_ENCRYPTION_KEY=${WEBMAIL_ENCRYPTION_KEY:-}
+      # Server IMAP proposto nel form "Nuovo account email": la copia
+      # locale delle caselle (servizio "posta")
+      - IMAP_DEFAULT_HOST=${WEBMAIL_IMAP_HOST:-posta}
+      - IMAP_DEFAULT_PORT=${WEBMAIL_IMAP_PORT:-143}
+      - IMAP_DEFAULT_SECURITY=${WEBMAIL_IMAP_SECURITY:-starttls}
+      - IMAP_TLS_VERIFY=${WEBMAIL_IMAP_TLS_VERIFY:-0}
+      # Vuota = webmail da sola. "/" = collegata a PiGreco Archivio, che la
+      # pubblica sul proprio indirizzo (pulsanti Archivio/Archivia, rubrica)
+      - ARCHIVIO_URL=${ARCHIVIO_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+      - pigreco
+
+  # ============================================
+  # DATABASE DELLA WEBMAIL
+  # ============================================
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    volumes:
+      - ${WEBMAIL_DB_DIR:-./dati/mysql}:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASS:-}
+      - TZ=${TZ:-Europe/Rome}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # Il client mysql dell'immagine webmail (MariaDB) crea il database al
+      # primo avvio: con l'autenticazione classica si collega senza problemi
+      - --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      # La password arriva dall'ambiente del container, non dalla riga di comando
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -u root"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ============================================
+  # COPIA LOCALE DELLE CASELLE (stessa immagine, comando diverso)
+  # ============================================
+  # Server IMAP (Dovecot): webmail e telefoni leggono da qui.
+  # Dagli altri container: host "posta", porta 143 (STARTTLS)
+  posta:
+    <<: *posta
+    command: dovecot
+    ports:
+      - "${POSTA_IMAP_PORT:-143}:143"
+      - "${POSTA_IMAPS_PORT:-993}:993"
+    networks:
+      - default
+      - pigreco
+
+  # mbsync: copia dal gestore le email nuove e i flag, senza mai cancellare
+  posta-sincronizza:
+    <<: *posta
+    command: sincronizza
+    depends_on:
+      - posta
+
+  # Pagina web "Gestione caselle" (login proprio: ./scripts/password-gestione.sh)
+  posta-gestione:
+    <<: *posta
+    command: gestione
+    ports:
+      - "${POSTA_GESTIONE_PORT:-8083}:8080"
+
+networks:
+  pigreco:
+    name: pigreco

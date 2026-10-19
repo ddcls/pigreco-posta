@@ -1,0 +1,243 @@
+/*
+ * Collegamento con PiGreco Archivio (archivio.js): finestra "Archivia".
+ * Usa la base delle finestre di style.css (compose-modal-overlay,
+ * compose-modal, compose-modal-header) e i colori di temi.css.
+ */
+
+.archivia-modal {
+    max-width: 760px;
+}
+
+.archivia-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 20px;
+    color: var(--testo);
+}
+
+.archivia-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--bordo);
+    background: var(--sfondo);
+}
+.archivia-footer:empty { display: none; }
+
+.archivia-btn-primario,
+.archivia-btn-secondario {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: var(--raggio);
+    font-weight: 700;
+    cursor: pointer;
+}
+.archivia-btn-primario {
+    background: var(--accento);
+    border: 1px solid var(--accento);
+    color: #fff;
+}
+.archivia-btn-primario:hover { background: var(--accento-scuro); border-color: var(--accento-scuro); }
+.archivia-btn-primario:disabled { opacity: .6; cursor: not-allowed; }
+.archivia-btn-primario.in-corso { cursor: wait; }
+
+/* Le etichette della griglia sono flex: senza questa regola "hidden" non le nasconderebbe */
+.archivia-modal [hidden] { display: none !important; }
+.archivia-btn-secondario {
+    background: var(--bianco);
+    border: 1px solid var(--bordo);
+    color: var(--testo);
+    font-weight: 400;
+}
+.archivia-btn-secondario:hover { background: var(--hover); }
+
+.archivia-stato {
+    padding: 24px 0;
+    text-align: center;
+    color: var(--testo-tenue);
+}
+
+.archivia-errore,
+.archivia-avviso,
+.archivia-ok {
+    border-radius: var(--raggio);
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    text-align: left;
+    line-height: 1.5;
+}
+.archivia-errore { background: var(--pericolo-chiaro); color: var(--pericolo); border: 1px solid #f3c4bd; }
+.archivia-avviso { background: var(--pannello); color: var(--testo-secondario); border: 1px solid var(--bordo); }
+.archivia-ok     { background: var(--ok-chiaro); color: #1e7a45; border: 1px solid #cfe9d8; }
+
+.archivia-nota { margin: 0 0 14px; line-height: 1.5; }
+
+.archivia-login label,
+.archivia-griglia label,
+.archivia-sezione > label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--testo-secondario);
+}
+
+.archivia-login {
+    display: grid;
+    gap: 12px;
+    max-width: 360px;
+}
+
+.archivia-login input,
+.archivia-griglia select,
+.archivia-allegati select {
+    font-weight: 400;
+    color: var(--testo);
+}
+
+/* Riepilogo dell'email, come l'intestazione della lettura */
+.archivia-intestazione {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--pannello);
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--testo-secondario);
+    word-break: break-word;
+}
+.archivia-intestazione strong { font-weight: 400; color: var(--testo-tenue); }
+.archivia-oggetto {
+    margin-bottom: 6px;
+    font-family: var(--font-titoli);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--testo);
+}
+.archivia-pec {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--accento);
+    color: #fff;
+    font-size: 12px;
+}
+
+.archivia-sezione { margin-bottom: 18px; }
+
+.archivia-griglia {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+}
+
+.archivia-griglia .archivia-check,
+.archivia-check {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    align-self: end;
+    font-weight: 400;
+    color: var(--testo);
+}
+
+/* Dove archiviare: Stanza › Armadio › Scaffale › Faldone › Cartellina */
+.archivia-dove {
+    margin: 0 0 18px;
+    padding: 12px 14px 14px;
+    border: 1px solid var(--accento);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    min-width: 0;
+}
+.archivia-dove legend {
+    padding: 0 6px;
+    font-weight: 700;
+    color: var(--accento);
+}
+.archivia-suggerite {
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--testo-secondario);
+}
+.archivia-nuovo-faldone {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px dashed var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--pannello);
+}
+.archivia-nuovo-faldone input {
+    font-weight: 400;
+    color: var(--testo);
+}
+.archivia-nuovo-azioni {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.archivia-percorso {
+    margin-top: 12px;
+    padding: 8px 10px;
+    border-radius: var(--raggio);
+    background: var(--pericolo-chiaro);
+    color: var(--pericolo);
+    font-size: 13px;
+    line-height: 1.45;
+    word-break: break-word;
+}
+.archivia-percorso-ok {
+    background: var(--ok-chiaro);
+    color: #1e7a45;
+}
+
+.archivia-suggerimento {
+    margin: 4px 6px 0 0;
+    padding: 5px 10px;
+    border: 1px solid var(--accento);
+    border-radius: var(--raggio);
+    background: var(--selezione);
+    color: var(--accento);
+    cursor: pointer;
+}
+.archivia-suggerimento:hover { background: var(--bianco); }
+
+/* Cosa archiviare: email + allegati */
+.archivia-allegati {
+    width: 100%;
+    margin-top: 6px;
+    border-collapse: collapse;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    font-size: 13px;
+}
+.archivia-allegati td {
+    padding: 8px;
+    border-bottom: 1px solid var(--hover);
+    vertical-align: middle;
+    word-break: break-word;
+}
+.archivia-allegati tr:last-child td { border-bottom: 0; }
+.archivia-allegati td:first-child { width: 30px; text-align: center; }
+.archivia-allegati i { color: var(--testo-tenue); margin-right: 4px; }
+.archivia-allegati small { color: var(--testo-tenue); }
+.archivia-escluso { opacity: .6; }
+
+@media (max-width: 640px) {
+    .archivia-griglia { grid-template-columns: 1fr; }
+    .archivia-dove { padding: 10px; }
+    /* Sul telefono le tendine e i pulsanti più alti si toccano meglio */
+    .archivia-griglia select,
+    .archivia-nuovo-faldone input { min-height: 42px; font-size: 16px; }
+    .archivia-body { padding: 14px; }
+}

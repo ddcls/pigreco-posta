@@ -1,0 +1,18 @@
+# Credenziali - non finiscono mai nel repo
+.env
+config/config.local.php
+config/env_path.local.php
+
+# Log
+*.log
+
+# Note di sviluppo con riferimenti a credenziali storiche
+analisi_aggiornata.txt
+todolist.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+__pycache__/
+*.pyc

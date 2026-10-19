@@ -1,0 +1,17 @@
+# Protezioni aggiuntive per i server Apache con AllowOverride attivo.
+# L'applicazione NON dipende da questo file: la configurazione sta in
+# config/config.local.php (PHP, non scaricabile) e deploy.sh non copia
+# .git né i file di sviluppo. Qui si blocca comunque l'accesso diretto a
+# file nascosti, sorgenti non-PHP e documentazione.
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "^\.|\.(md|sql|py|sh|txt|json|bak|log|example)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_alias.c>
+    RedirectMatch 404 /\.git
+    # Cartelle di soli include e script da riga di comando
+    RedirectMatch 404 /(lib|config|phpmailer|initializa|migrations)/
+</IfModule>

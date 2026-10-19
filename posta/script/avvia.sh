@@ -1,0 +1,39 @@
+#!/bin/sh
+# Avvio dei servizi della copia locale (stessa immagine, comando diverso):
+#   avvia dovecot       genera utenti/cartelle/certificato e avvia Dovecot
+#   avvia sincronizza   mbsync per ogni casella ogni POSTA_INTERVALLO secondi
+#   avvia gestione      pagina web "Gestione caselle"
+#   avvia una-volta     una sola sincronizzazione con i dettagli (es. la prima, a mano)
+set -eu
+
+come_vmail() { exec setpriv --reuid=5000 --regid=5000 --clear-groups -- "$@"; }
+
+# Cartella dei dati: se Docker l'ha appena creata (di root) la si assegna a
+# vmail, così su una macchina nuova non serve prepararla a mano con sudo
+if [ "$(id -u)" = 0 ]; then
+    mkdir -p /srv/posta
+    if [ "$(stat -c %u /srv/posta)" != 5000 ]; then
+        chown 5000:5000 /srv/posta
+        chmod 750 /srv/posta
+    fi
+fi
+
+case "${1:-dovecot}" in
+    dovecot)
+        genera-config dovecot
+        exec dovecot -F
+        ;;
+    sincronizza)
+        come_vmail genera-config sincronizza
+        ;;
+    gestione)
+        come_vmail python3 -u /usr/local/lib/posta/gestione.py
+        ;;
+    una-volta)
+        setpriv --reuid=5000 --regid=5000 --clear-groups -- genera-config mbsync
+        come_vmail mbsync -a -V -c /srv/posta/config/generati/mbsyncrc
+        ;;
+    *)
+        exec "$@"
+        ;;
+esac

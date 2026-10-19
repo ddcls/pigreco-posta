@@ -1,0 +1,25 @@
+# /srv/posta/config/account.conf: una casella per blocco.
+# Il nome del blocco è l'indirizzo email ed è anche l'utente con cui webmail
+# e telefoni accedono alla copia locale (server = questo PC).
+# Il file contiene password: proprietario 5000, permessi 600.
+
+[mario.rossi@libero.it]
+server = imap.libero.it
+porta = 993
+; ssl (porta 993) oppure starttls (porta 143)
+sicurezza = ssl
+utente = mario.rossi@libero.it
+password_gestore = password-del-gestore
+; password della copia locale, scelta da noi (la pagina di gestione salva
+; invece password_locale_hash = {SHA512-CRYPT}..., cioè solo l'impronta)
+password_locale = password-della-casella-locale
+; facoltativo: cartelle del gestore da non copiare (* = qualsiasi testo)
+; escludi = Templates, __liberosms*
+; no = sincronizzazione sospesa (la copia locale resta leggibile)
+attiva = si
+; giorni di email da tenere sul gestore: dopo ogni sincronizzazione riuscita
+; vengono cancellate DAL GESTORE le email più vecchie, solo se la copia locale
+; è confermata (in locale resta tutto). 0 = non cancellare mai dal gestore;
+; altrimenti almeno 7. Si imposta anche dalla pagina di gestione, che prima
+; mostra cosa verrebbe cancellato ("Prova l'accesso al gestore")
+tieni_giorni = 0
