@@ -16,7 +16,7 @@ va messo il valore vero, senza `< >`.
 8. [Riavvii, backup, aggiornamenti](#8-riavvii-backup-aggiornamenti)
 9. [Problemi frequenti](#9-problemi-frequenti)
 
-Per usare la posta dopo l'installazione: [manuale/manuale.md](manuale/manuale.md).
+Per usare la posta dopo l'installazione: [manuale/manuale.md](manuale/manuale.md) (anche in PDF: [manuale/manuale.pdf](manuale/manuale.pdf)).
 
 ---
 

@@ -29,3 +29,7 @@ insieme a questo programma (file LICENSE). In caso contrario, vedi
 - Commento del linguaggio: `/* … */` con ` * ` per php/js/css (in php subito dopo `<?php`), `#` per sh/py/yml/conf/Dockerfile (dopo lo shebang e l'eventuale riga `coding` di Python), `;` per ini, `--` per sql.
 - Niente intestazione nei componenti di terzi (`webmail/phpmailer/`, `webmail/fontawesome/`, `webmail/vendor/`, vedi `THIRD-PARTY.md`), né in json/md/file di esempio.
 - L'anno resta quello della prima pubblicazione (2026).
+
+## Manuale
+
+`manuale/manuale.md` è il testo; `manuale/manuale.pdf` si rigenera dopo ogni modifica con `manuale/genera_pdf.py` (pandoc + Playwright/Chromium; sul PC di sviluppo `~/venv-manuale/bin/python manuale/genera_pdf.py`) e va nello stesso commit. La versione in copertina e a piè di pagina viene dalla riga `Versione …` in testa al manuale.

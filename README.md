@@ -53,7 +53,7 @@ Then:
 1. **Gestione caselle**, `http://<server>:8083`: add the mailboxes (address, provider login). The page shows the **local password** of each mailbox once.
 2. **Webmail**, `http://<server>:8080/webmail/`: log in as `admin` and go to *Impostazioni › Account Email*. For each mailbox set IMAP server `posta`, port 143, STARTTLS, user = email address, password = local password. For SMTP use the provider's server.
 
-The full guide, in Italian, is in [`manuale/manuale.md`](manuale/manuale.md). For a fresh **Debian** server (sudo, static IP, Docker, install, backups) there is a step-by-step guide, also in Italian: [`INSTALLA-DEBIAN.md`](INSTALLA-DEBIAN.md).
+The full guide, in Italian, is in [`manuale/manuale.md`](manuale/manuale.md) (also as PDF: [`manuale/manuale.pdf`](manuale/manuale.pdf)). For a fresh **Debian** server (sudo, static IP, Docker, install, backups) there is a step-by-step guide, also in Italian: [`INSTALLA-DEBIAN.md`](INSTALLA-DEBIAN.md).
 
 **Microsoft mailboxes** (hotmail/outlook/live/Microsoft 365) only allow OAuth2 and cannot be copied. Gmail, Yahoo and iCloud need an *app password*.
 
