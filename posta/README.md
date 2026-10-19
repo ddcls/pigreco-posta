@@ -28,7 +28,7 @@ Le porte predefinite sono quelle standard: su un server nuovo sono libere, e
 Questi servizi sono definiti nel `docker-compose.yml` principale di PiGreco
 Posta, insieme alla webmail: si installano con `./installa.sh` dalla cartella
 del progetto (vedi il README principale). La cartella dei dati (`POSTA_DIR`,
-di norma `./dati/posta`) viene assegnata a 5000:5000 dal container, senza
+di norma `/srv/posta`) viene assegnata a 5000:5000 dal container, senza
 sudo. Il login della pagina di gestione:
 
 ```bash

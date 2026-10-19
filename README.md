@@ -68,13 +68,13 @@ docker compose logs -f posta-sincronizza  # sync log
 git pull && docker compose up -d --build  # update
 ```
 
-Data lives in `dati/` (MySQL and mailboxes). **Back it up** together with `.env`: the encryption key of the saved passwords is in `.env`.
+Mailboxes live in `/srv/posta`, the database in `dati/`. **Back it up** together with `.env`: the encryption key of the saved passwords is in `.env`.
 
 ## Security notes
 
 - Put the webmail behind HTTPS (a reverse proxy such as Caddy, nginx or Traefik) before exposing it to the Internet. Keep the management page (port 8083) on the LAN only.
 - IMAP/SMTP passwords are stored encrypted (AES-256-GCM, key in `.env`). The HTML body of emails is shown in a sandboxed iframe, without scripts.
-- The Dovecot certificate created at first start is self-signed. Replace `dati/posta/config/ssl/cert.pem` and `key.pem` with a real one before using the mail from phones outside the office.
+- The Dovecot certificate created at first start is self-signed. Replace `/srv/posta/config/ssl/cert.pem` and `key.pem` with a real one before using the mail from phones outside the office.
 - Found a vulnerability? See [SECURITY.md](SECURITY.md): please report it privately, not in a public issue.
 
 ## PiGreco Archivio

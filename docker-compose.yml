@@ -22,7 +22,7 @@ x-posta: &posta
   restart: unless-stopped
   volumes:
     # Creata e assegnata a vmail (5000:5000, 750) dal container al primo avvio
-    - ${POSTA_DIR:-./dati/posta}:/srv/posta
+    - ${POSTA_DIR:-/srv/posta}:/srv/posta
   environment:
     - TZ=${TZ:-Europe/Rome}
     - POSTA_NOME_SERVER=${POSTA_NOME_SERVER:-posta.locale}

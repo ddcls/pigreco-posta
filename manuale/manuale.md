@@ -108,7 +108,7 @@ Le impostazioni sono nel file `.env`, nella cartella di PiGreco Posta:
 | `WEBMAIL_PORT` | 8080 | Porta della webmail |
 | `POSTA_GESTIONE_PORT` | 8083 | Porta della pagina Gestione caselle |
 | `POSTA_IMAP_PORT` / `POSTA_IMAPS_PORT` | 143 / 993 | Porte IMAP per telefoni e programmi di posta |
-| `POSTA_DIR` | `./dati/posta` | Dove stanno le caselle copiate |
+| `POSTA_DIR` | `/srv/posta` | Dove stanno le caselle copiate (una cartella per indirizzo, con la sua `Maildir`) |
 | `WEBMAIL_DB_DIR` | `./dati/mysql` | Dove sta il database della webmail |
 | `POSTA_INTERVALLO` | 300 | Secondi tra una copia e la successiva |
 
@@ -454,7 +454,7 @@ Telefoni e programmi di posta possono leggere la **copia sul server**, con tutte
 
 Il telefono può segnalare il certificato come "non attendibile": è quello di prova creato
 all'installazione. Per leggere la posta **fuori dall'ufficio** servono un indirizzo raggiungibile
-da Internet e un certificato vero (`dati/posta/config/ssl/cert.pem` e `key.pem`): chiedi al
+da Internet e un certificato vero (`/srv/posta/config/ssl/cert.pem` e `key.pem`): chiedi al
 tecnico.
 
 ---
@@ -465,7 +465,7 @@ tecnico.
 
 | Cosa | Dove | Perché |
 |---|---|---|
-| Le caselle copiate | `dati/posta/` | Tutta la posta |
+| Le caselle copiate | `/srv/posta/` | Tutta la posta |
 | Il database della webmail | `dati/mysql/` | Utenti, account, filtri |
 | Il file `.env` | cartella di PiGreco Posta | Contiene la chiave che cifra le password |
 
@@ -473,7 +473,7 @@ Il modo più semplice è fermare i servizi, copiare la cartella e riavviare:
 
 ```bash
 docker compose stop
-sudo tar czf /percorso/backup/pigreco-posta-$(date +%F).tar.gz dati .env
+sudo tar czf /percorso/backup/pigreco-posta-$(date +%F).tar.gz dati .env /srv/posta
 docker compose start
 ```
 

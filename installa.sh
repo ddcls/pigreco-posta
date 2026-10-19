@@ -74,6 +74,8 @@ fi
 # lo assegnano i container (MySQL al suo utente, la posta a 5000:5000).
 for var in WEBMAIL_DB_DIR POSTA_DIR; do
     dir="$(valore "$var")"
+    # (/srv/posta non è scrivibile dall'utente: la crea Docker e il container
+    # della posta la assegna a 5000:5000)
     [[ -n "$dir" ]] && mkdir -p "$dir" 2>/dev/null || true
 done
 

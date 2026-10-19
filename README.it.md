@@ -66,13 +66,13 @@ docker compose logs -f posta-sincronizza  # registro della sincronizzazione
 git pull && docker compose up -d --build  # aggiornamento
 ```
 
-I dati sono in `dati/` (MySQL e caselle). **Fanne il backup** insieme a `.env`: in `.env` c'è la chiave che cifra le password salvate.
+Le caselle sono in `/srv/posta`, il database in `dati/`. **Fanne il backup** insieme a `.env`: in `.env` c'è la chiave che cifra le password salvate.
 
 ## Sicurezza
 
 - Prima di esporre la webmail su Internet mettila dietro HTTPS, con un reverse proxy come Caddy, nginx o Traefik. La pagina di gestione (porta 8083) va lasciata solo nella rete dell'ufficio.
 - Le password IMAP/SMTP sono salvate cifrate (AES-256-GCM, chiave in `.env`). Il testo HTML delle email è mostrato in un iframe isolato, senza script.
-- Il certificato di Dovecot creato al primo avvio è autofirmato. Sostituisci `dati/posta/config/ssl/cert.pem` e `key.pem` con uno vero prima di usare la posta dai telefoni fuori dall'ufficio.
+- Il certificato di Dovecot creato al primo avvio è autofirmato. Sostituisci `/srv/posta/config/ssl/cert.pem` e `key.pem` con uno vero prima di usare la posta dai telefoni fuori dall'ufficio.
 - Hai trovato una vulnerabilità? Vedi [SECURITY.md](SECURITY.md): segnalala in privato, non in una issue pubblica.
 
 ## PiGreco Archivio
