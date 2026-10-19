@@ -21,7 +21,17 @@ The user interface is in **Italian** for now. Translations are welcome.
 
 ## Screenshots
 
-*(coming soon)*
+![Webmail: folders, message list and reading pane](docs/screenshot/webmail.png)
+
+<p align="center">
+  <img src="docs/screenshot/telefono-elenco.png" alt="Webmail on a phone: message list" width="260">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot/telefono-lettura.png" alt="Webmail on a phone: reading a message" width="260">
+</p>
+
+![Mailbox management page: local copies and last sync](docs/screenshot/gestione-caselle.png)
+
+*All names, addresses and messages in the screenshots are made up.*
 
 ## Requirements
 

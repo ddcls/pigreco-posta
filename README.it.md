@@ -17,6 +17,20 @@ gestore (Gmail, Libero, Aruba, PEC…) ──IMAP──▶ copia sul tuo disco �
 - **Pagina "Gestione caselle"** per aggiungere le caselle, provare l'accesso al gestore, vedere lo stato della sincronizzazione e impostare la pulizia.
 - **Tutto in Docker**: webmail (PHP 8.3 + Apache), MySQL 8, Dovecot, mbsync, pagina di gestione.
 
+## Come si presenta
+
+![Webmail: cartelle, elenco delle email e lettura](docs/screenshot/webmail.png)
+
+<p align="center">
+  <img src="docs/screenshot/telefono-elenco.png" alt="Webmail sul telefono: elenco" width="260">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot/telefono-lettura.png" alt="Webmail sul telefono: lettura di un'email" width="260">
+</p>
+
+![Pagina Gestione caselle: copie locali e ultima sincronizzazione](docs/screenshot/gestione-caselle.png)
+
+*Nomi, indirizzi e messaggi delle immagini sono inventati.*
+
 ## Requisiti
 
 - Un server Linux (o un PC sempre acceso) con **Docker** e il plugin **compose**.
