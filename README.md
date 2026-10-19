@@ -46,7 +46,7 @@ cd pigreco-posta
 ./installa.sh
 ```
 
-`installa.sh` creates `.env` with random passwords and encryption key, builds and starts the containers, and asks for the passwords of the webmail `admin` user and of the management page. Re-running it is safe.
+`installa.sh` creates `.env` with random passwords and encryption key, builds and starts the containers, and asks for the passwords of the webmail `admin` user and of the management page. Re-running it is safe. It keeps a root-only copy of `.env` in `/srv/posta/config/`, so a fresh copy of the program (e.g. a new ZIP) picks up the existing data and passwords.
 
 Then:
 

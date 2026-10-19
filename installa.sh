@@ -4,7 +4,9 @@
 #   ./installa.sh
 #
 # 1. crea .env da .env.example (se non c'è) e vi scrive password e chiave
-#    di cifratura casuali al posto di quelle vuote;
+#    di cifratura casuali al posto di quelle vuote; se in POSTA_DIR ci sono
+#    i dati di un'installazione precedente riprende il suo .env (ne tiene una
+#    copia in POSTA_DIR/config/pigreco-posta.env);
 # 2. costruisce e avvia i container;
 # 3. chiede la password dell'amministratore della webmail e quella della
 #    pagina "Gestione caselle".
@@ -26,12 +28,44 @@ if ! command -v openssl >/dev/null 2>&1; then
     echo "Serve openssl per generare le password (es. apt install openssl)." >&2
     exit 1
 fi
+valore() { grep -E "^$1=" .env | tail -n1 | cut -d= -f2-; }
+assoluto() { realpath -m -- "$1"; }
+# Le cartelle dei dati (di root o di 5000) si guardano da un container:
+# l'utente normale non può entrare in /srv/posta. Stessa immagine di base
+# della posta, che serve comunque.
+# nel_container <cartella:/d[:ro]> <argomenti di docker run>
+nel_container() { local cartella="$1"; shift; docker run --rm -v "$cartella" "$@"; }
+# c_e <cartella> <percorso dentro>: montando la cartella madre, così Docker
+# non crea la cartella se non esiste
+c_e() { local madre; madre="$(dirname "$1")"
+        [[ -d "$madre" ]] && nel_container "$madre:/d:ro" $IMMAGINE test -e "/d/$(basename "$1")/$2"; }
+IMMAGINE=debian:bookworm-slim
+COPIA_ENV=config/pigreco-posta.env   # dentro POSTA_DIR
+
 if [[ -f .env ]]; then
     echo "Uso il file .env esistente."
 else
     cp .env.example .env
     chmod 600 .env
-    echo "Creato .env da .env.example."
+    posta="$(assoluto "$(valore POSTA_DIR)")"
+    database="$(assoluto "$(valore WEBMAIL_DB_DIR)")"
+    if c_e "$posta" "$COPIA_ENV"; then
+        # Programma riscaricato (es. dallo zip) con i dati di prima ancora
+        # lì: si riprendono password e chiave di cifratura dell'installazione
+        # precedente, altrimenti il database esistente non si aprirebbe più
+        nel_container "$posta:/d:ro" $IMMAGINE cat "/d/$COPIA_ENV" > .env
+        echo "Ripreso .env dell'installazione precedente ($posta/$COPIA_ENV)."
+    elif c_e "$database" mysql; then
+        rm .env
+        echo "In $database c'è già il database di un'installazione precedente," >&2
+        echo "ma manca il suo .env con le password. Due possibilità:" >&2
+        echo "  - rimetti il vecchio .env (copia o backup) in $(pwd) e rilancia ./installa.sh;" >&2
+        echo "  - per ripartire da zero, cancella i dati: sudo rm -r $database" >&2
+        echo "    (e sudo rm -r $posta per togliere anche le caselle copiate)." >&2
+        exit 1
+    else
+        echo "Creato .env da .env.example."
+    fi
 fi
 # Password e chiave lasciate vuote (anche in un .env copiato e modificato a
 # mano, es. per mettere i dati su un altro disco): generate qui. Quelle già
@@ -51,7 +85,6 @@ if (( generate )); then
 fi
 
 # Porte già occupate: meglio dirlo prima che Docker fallisca a metà
-valore() { grep -E "^$1=" .env | tail -n1 | cut -d= -f2-; }
 occupate=()
 for var in WEBMAIL_PORT POSTA_IMAP_PORT POSTA_IMAPS_PORT POSTA_GESTIONE_PORT; do
     porta="$(valore "$var")"
@@ -89,6 +122,11 @@ for i in $(seq 1 60); do
     fi
     sleep 2
 done
+
+# Copia di .env accanto ai dati (solo root può leggerla): se il programma
+# viene cancellato e riscaricato, ./installa.sh la ritrova da sé
+nel_container "$(assoluto "$(valore POSTA_DIR)"):/d" -i $IMMAGINE sh -c \
+    "[ -d /d/config ] || install -d -o 5000 -g 5000 /d/config; cat > /d/$COPIA_ENV && chown 0:0 /d/$COPIA_ENV && chmod 600 /d/$COPIA_ENV" < .env
 
 echo
 # Senza terminale (es. installazione automatica) le password si saltano

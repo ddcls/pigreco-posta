@@ -241,7 +241,9 @@ cd /opt/pigreco-posta
 
 Lo script:
 
-1. crea `.env` (se non c'è) con **password e chiave di cifratura casuali**;
+1. crea `.env` (se non c'è) con **password e chiave di cifratura casuali**. Se in `/srv/posta` ci sono
+   già i dati di un'installazione precedente, riprende invece il `.env` di allora, di cui tiene una
+   copia in `/srv/posta/config/pigreco-posta.env` (vedi "Reinstallare dallo ZIP", paragrafo 8);
 2. controlla che le porte siano libere;
 3. scarica e costruisce i programmi e li avvia. **La prima volta ci vogliono alcuni minuti**;
 4. chiede la password dell'utente **admin** della webmail e quella della pagina **Gestione caselle**
@@ -363,12 +365,39 @@ Con lo ZIP: scarica il nuovo zip, estrailo e copialo sopra con
 `cp -a pigreco-posta-main/. /opt/pigreco-posta/`, poi `docker compose up -d --build`. `.env` non è
 nello zip e resta com'è; i dati sono in `/srv/posta`, fuori dal programma.
 
+**Reinstallare dallo ZIP** (cartella del programma cancellata e rimessa da capo): caselle, database
+e utenti restano in `/srv/posta`. Ogni volta che gira, `installa.sh` salva una copia di `.env` in
+`/srv/posta/config/pigreco-posta.env`, leggibile solo da root. Su una cartella nuova, senza
+`.env`, la ritrova e riprende password e chiave di prima:
+
+```bash
+cd /opt/pigreco-posta && docker compose down   # ferma la versione vecchia
+cd /opt && sudo rm -r /opt/pigreco-posta        # SOLO se i dati sono in /srv/posta (paragrafo 5)
+# poi paragrafo 4 (zip) e paragrafo 6: ./installa.sh scrive "Ripreso .env dell'installazione precedente"
+```
+
+Se c'è il database ma non la copia di `.env` (installazioni fatte prima di questa versione),
+`installa.sh` si ferma e non tocca niente: rimetti il vecchio `.env` in `/opt/pigreco-posta` e
+rilancialo.
+
+**Ripartire da zero** (perdendo caselle copiate, utenti e account della webmail):
+
+```bash
+cd /opt/pigreco-posta && docker compose down
+sudo rm -r /srv/posta
+./installa.sh
+```
+
 ---
 
 ## 9. Problemi frequenti
 
 **"is not in the sudoers file" / "sudo: command not found"**
 → Paragrafo 2.1, poi esci e rientra.
+
+**`installa.sh`: "c'è già il database di un'installazione precedente, ma manca il suo .env"**
+→ Rimetti il `.env` di quell'installazione (copia su pennetta o, da un backup:
+`sudo tar -xzf <backup>.tar.gz -O env > .env`) e rilancia; oppure riparti da zero (paragrafo 8).
 
 **"permission denied while trying to connect to the Docker daemon socket"**
 → La sessione è di prima dell'aggiunta al gruppo `docker`: esci e rientra (o `newgrp docker`).

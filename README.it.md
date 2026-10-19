@@ -44,7 +44,7 @@ cd pigreco-posta
 ./installa.sh
 ```
 
-`installa.sh` crea `.env` con password e chiave di cifratura casuali, costruisce e avvia i container, poi chiede le password dell'utente `admin` della webmail e della pagina di gestione. Rilanciarlo è sicuro.
+`installa.sh` crea `.env` con password e chiave di cifratura casuali, costruisce e avvia i container, poi chiede le password dell'utente `admin` della webmail e della pagina di gestione. Rilanciarlo è sicuro. Tiene una copia di `.env` in `/srv/posta/config/` (leggibile solo da root): reinstallando il programma da capo, per esempio da un nuovo ZIP, ritrova dati e password.
 
 Poi:
 

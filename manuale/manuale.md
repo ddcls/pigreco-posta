@@ -97,7 +97,7 @@ Alla fine mostra gli indirizzi della webmail e della pagina di gestione.
 > Conservane una copia in un posto sicuro: senza, dopo un ripristino da backup le password
 > salvate nella webmail non sono più leggibili e vanno reinserite.
 
-Rilanciare `./installa.sh` è sicuro: non cancella né sovrascrive niente.
+Rilanciare `./installa.sh` è sicuro: non cancella né sovrascrive niente. Tiene una copia di `.env` in `/srv/posta/config/pigreco-posta.env` (leggibile solo da root): se la cartella del programma viene cancellata e rimessa da capo, la ritrova e riprende password e chiave di prima.
 
 ### 2.3 Cambiare le porte e le cartelle
 
