@@ -64,11 +64,12 @@ docker compose ps                         # status
 docker compose logs -f posta-sincronizza  # sync log
 ./scripts/password-webmail.sh [user]      # set a webmail password
 ./scripts/password-gestione.sh [user]     # set the management page login
+sudo ./scripts/backup.sh <folder>         # back up mailboxes, database and .env in one file
 ./scripts/confronta.sh [address]          # compare provider vs local counts, folder by folder
 git pull && docker compose up -d --build  # update
 ```
 
-Mailboxes live in `/srv/posta`, the database in `dati/`. **Back it up** together with `.env`: the encryption key of the saved passwords is in `.env`.
+Mailboxes and database live in `/srv/posta`: `sudo ./scripts/backup.sh <folder>` backs them up in a single file, together with `.env`. Keep that file safe: `.env` holds the encryption key of the saved passwords.
 
 ## Security notes
 

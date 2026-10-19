@@ -109,7 +109,7 @@ Le impostazioni sono nel file `.env`, nella cartella di PiGreco Posta:
 | `POSTA_GESTIONE_PORT` | 8083 | Porta della pagina Gestione caselle |
 | `POSTA_IMAP_PORT` / `POSTA_IMAPS_PORT` | 143 / 993 | Porte IMAP per telefoni e programmi di posta |
 | `POSTA_DIR` | `/srv/posta` | Dove stanno le caselle copiate (una cartella per indirizzo, con la sua `Maildir`) |
-| `WEBMAIL_DB_DIR` | `./dati/mysql` | Dove sta il database della webmail |
+| `WEBMAIL_DB_DIR` | `/srv/posta/mysql` | Dove sta il database della webmail |
 | `POSTA_INTERVALLO` | 300 | Secondi tra una copia e la successiva |
 
 Se `installa.sh` dice che una porta è già usata (per esempio perché sul server c'è già un altro
@@ -466,19 +466,18 @@ tecnico.
 | Cosa | Dove | Perché |
 |---|---|---|
 | Le caselle copiate | `/srv/posta/` | Tutta la posta |
-| Il database della webmail | `dati/mysql/` | Utenti, account, filtri |
+| Il database della webmail | `/srv/posta/mysql/` | Utenti, account, filtri |
 | Il file `.env` | cartella di PiGreco Posta | Contiene la chiave che cifra le password |
 
-Il modo più semplice è fermare i servizi, copiare la cartella e riavviare:
+Un solo comando salva tutto in un file, senza fermare niente:
 
 ```bash
-docker compose stop
-sudo tar czf /percorso/backup/pigreco-posta-$(date +%F).tar.gz dati .env /srv/posta
-docker compose start
+sudo ./scripts/backup.sh /percorso/backup
 ```
 
-(`sudo` serve perché i file delle caselle e del database sono dei programmi che li usano, non del
-tuo utente.)
+Il database viene salvato con `mysqldump` (i suoi file copiati a programma acceso potrebbero non
+ripartire). `sudo` serve perché i file delle caselle sono dei programmi che li usano, non del tuo
+utente. Il ripristino è nella guida [`INSTALLA-DEBIAN.md`](../INSTALLA-DEBIAN.md), paragrafo 8.
 
 ### 12.2 Aggiornare
 

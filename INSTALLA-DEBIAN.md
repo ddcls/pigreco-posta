@@ -196,43 +196,39 @@ Con una pennetta su Debian **senza interfaccia grafica**, montala prima:
 
 ## 5. Facoltativo: i dati su un disco a parte
 
-Le caselle copiate stanno in **`/srv/posta`** (una cartella per indirizzo, con la sua `Maildir`),
-come in PiGreco Archivio; il database della webmail in `/opt/pigreco-posta/dati/mysql`. **Non
-creare `/srv/posta`**: la prepara il programma al primo avvio (proprietario 5000:5000).
+Tutti i dati stanno in **`/srv/posta`**, come in PiGreco Archivio:
 
-Se il server ha un **disco dedicato ai dati** (consigliato quando la posta è tanta), montalo in
-`/srv/posta` **prima di installare** (o in `/srv`, se ci metti anche altro).
-
-Per mettere sul disco dei dati anche il database, prima di installare:
-
-```bash
-cd /opt/pigreco-posta
-cp .env.example .env
-chmod 600 .env
-nano .env                     # WEBMAIL_DB_DIR=/srv/pigreco-posta-db
+```
+/srv/posta/
+├── config/                       caselle, password locali, certificato, stato della copia
+├── <indirizzo>/Maildir/          una cartella per ogni casella copiata
+└── mysql/                        database della webmail (utenti, account, filtri)
 ```
 
-Lascia **vuote** le password e la chiave: le genera `installa.sh`. Salva con Ctrl+O, Invio, esci
-con Ctrl+X.
+**Non creare `/srv/posta`**: la prepara il programma al primo avvio. Se il server ha un **disco
+dedicato ai dati** (consigliato quando la posta è tanta), montalo in `/srv/posta` (o in `/srv`)
+**prima di installare**.
 
-### 5.1 Spostare la posta dopo l'installazione
+### 5.1 Spostare i dati dopo l'installazione
 
-Se le caselle sono finite in un'altra cartella (per esempio `dati/posta`, il valore delle prime
-versioni), si spostano senza riscaricare niente: dentro i container la cartella è sempre
-`/srv/posta`.
+Le prime versioni mettevano posta e database in `/opt/pigreco-posta/dati/`. Si spostano senza
+riscaricare niente: dentro i container le cartelle non cambiano.
 
 ```bash
 cd /opt/pigreco-posta
-grep '^POSTA_DIR' .env                      # la cartella attuale, es. ./dati/posta
-ls /srv/posta 2>/dev/null                   # deve essere vuota o non esistere
-docker compose stop posta posta-sincronizza posta-gestione
-sudo cp -a dati/posta /srv/posta            # se /srv/posta esiste già vuota: sudo cp -a dati/posta/. /srv/posta/
-sed -i 's|^POSTA_DIR=.*|POSTA_DIR=/srv/posta|' .env
+grep -E '^(POSTA_DIR|WEBMAIL_DB_DIR)' .env  # le cartelle attuali
+sudo ls -A /srv/posta                       # se c'è già la posta (spostata prima), deve mancare solo mysql
+docker compose down                         # ferma tutto (i dati restano)
+sudo cp -a dati/posta /srv/posta            # SOLO se la posta non è ancora in /srv/posta
+sudo cp -a dati/mysql /srv/posta/mysql
+sed -i 's|^POSTA_DIR=.*|POSTA_DIR=/srv/posta|; s|^WEBMAIL_DB_DIR=.*|WEBMAIL_DB_DIR=/srv/posta/mysql|' .env
 docker compose up -d
+docker compose ps                           # tutti Up, db "healthy"
 ```
 
-Controlla nella Gestione caselle che le caselle ci siano e che la sincronizzazione riesca, e nella
-webmail che si leggano le email. Solo dopo cancella la vecchia copia: `sudo rm -r dati/posta`.
+Controlla che entrare nella webmail funzioni, che account e filtri ci siano e che le email si
+leggano; nella Gestione caselle che la sincronizzazione riesca. Solo dopo cancella la vecchia
+copia: `sudo rm -r dati`.
 
 ---
 
@@ -324,19 +320,36 @@ ufficio.
 cd /opt/pigreco-posta && docker compose ps
 ```
 
-**Backup**: copia regolarmente fuori dal server (disco esterno, NAS) il file `.env` e la cartella
-della posta `/srv/posta` (e `/opt/pigreco-posta/dati`, dove sta il database). Il
-database conviene salvarlo con un dump:
+**Backup**: un solo comando, anche con tutto acceso:
 
 ```bash
 cd /opt/pigreco-posta
-docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction --all-databases' \
-    > /media/<disco-esterno>/pigreco-posta-db-$(date +%Y%m%d).sql
-sudo tar -czf /media/<disco-esterno>/pigreco-posta-posta-$(date +%Y%m%d).tar.gz -C /srv posta
+sudo ./scripts/backup.sh /media/<disco-esterno>
 ```
 
-Se presso i gestori tieni solo gli ultimi giorni (capitolo 10 del manuale), **la copia sul server è
-l'unica**: il backup diventa obbligatorio.
+Crea `pigreco-posta-AAAAMMGG-HHMM.tar.gz` con le caselle (`/srv/posta`), il database salvato con
+`mysqldump` e il file `.env`. I file di MySQL (`/srv/posta/mysql`) non ci sono: copiati mentre il
+database lavora potrebbero non ripartire, il dump invece sì. Il file contiene la chiave di cifratura
+e le password: tienilo al sicuro.
+
+Fallo regolarmente, su un disco esterno o un NAS. Se presso i gestori tieni solo gli ultimi giorni
+(capitolo 10 del manuale), **la copia sul server è l'unica**: il backup diventa obbligatorio.
+
+**Ripristino** (su un server nuovo, dopo i paragrafi 2, 3 e 4):
+
+```bash
+cd /opt/pigreco-posta
+B=/media/<disco-esterno>/pigreco-posta-AAAAMMGG-HHMM.tar.gz
+sudo tar -xzf "$B" -C /srv posta                     # caselle e configurazione
+sudo tar -xzf "$B" -O env > .env && chmod 600 .env   # password e chiave di prima
+./installa.sh                                        # alle due domande sulle password rispondi n
+sudo tar -xzf "$B" -O database.sql | \
+    docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot'
+docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -e "FLUSH PRIVILEGES"'
+docker compose restart webmail
+```
+
+Utenti, account, filtri, caselle e password tornano come al momento del backup.
 
 **Aggiornare**: con `git clone` basta
 
@@ -347,8 +360,8 @@ docker compose up -d --build
 ```
 
 Con lo ZIP: scarica il nuovo zip, estrailo e copialo sopra con
-`cp -a pigreco-posta-main/. /opt/pigreco-posta/`, poi `docker compose up -d --build`. `.env` e
-`dati/` non sono nello zip e restano come sono; `/srv/posta` è fuori dal programma.
+`cp -a pigreco-posta-main/. /opt/pigreco-posta/`, poi `docker compose up -d --build`. `.env` non è
+nello zip e resta com'è; i dati sono in `/srv/posta`, fuori dal programma.
 
 ---
 

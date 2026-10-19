@@ -81,7 +81,7 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     volumes:
-      - ${WEBMAIL_DB_DIR:-./dati/mysql}:/var/lib/mysql
+      - ${WEBMAIL_DB_DIR:-/srv/posta/mysql}:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASS:-}
       - TZ=${TZ:-Europe/Rome}

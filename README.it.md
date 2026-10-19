@@ -62,11 +62,12 @@ docker compose ps                         # stato dei servizi
 docker compose logs -f posta-sincronizza  # registro della sincronizzazione
 ./scripts/password-webmail.sh [utente]    # password di un utente della webmail
 ./scripts/password-gestione.sh [utente]   # accesso alla pagina di gestione
+sudo ./scripts/backup.sh <cartella>       # backup di caselle, database e .env in un file
 ./scripts/confronta.sh [indirizzo]        # email per cartella: gestore e copia locale
 git pull && docker compose up -d --build  # aggiornamento
 ```
 
-Le caselle sono in `/srv/posta`, il database in `dati/`. **Fanne il backup** insieme a `.env`: in `.env` c'è la chiave che cifra le password salvate.
+Caselle e database sono in `/srv/posta`: `sudo ./scripts/backup.sh <cartella>` ne fa il backup in un solo file, insieme a `.env`. Tieni quel file al sicuro: in `.env` c'è la chiave che cifra le password salvate.
 
 ## Sicurezza
 
