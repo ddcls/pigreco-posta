@@ -109,9 +109,9 @@ L'amministratore vede tutti gli account attivi; gli altri utenti solo quelli vis
 
 Nel `docker-compose.yml` del progetto la webmail è il servizio `webmail` (immagine in `docker/webmail/`): il codice di questa cartella è montato in sola lettura e la configurazione arriva dalle variabili d'ambiente del container, a partire da `.env` (`WEBMAIL_CONFIG_FILE` indica un file vuoto al posto di `config/config.local.php`). Database, utente MySQL, tabelle, migrazioni e utente `admin` sono creati all'avvio da `docker/webmail/entrypoint.sh`, che lancia anche i filtri ogni minuto.
 
-Con **PiGreco Archivio** sullo stesso server, l'Apache dell'archivio inoltra `/webmail/` a questo container (rete Docker `pigreco`) e `ARCHIVIO_URL` vale `/`: compaiono il pulsante **Archivio** in alto, **Archivia** sul dettaglio dell'email (`archivio.js`, `archivio.css`) e la rubrica **Contatti** (`contatti.js`). "Archivia" invia l'`.eml` originale all'API dell'archivio, raggiunta su `/api/` dalla stessa origine, con la sessione e i permessi dell'utente **dell'archivio**: se non è collegato, la finestra chiede il suo login.
+Con **PiGreco Archivio** sullo stesso server, l'Apache dell'archivio inoltra `/webmail/` a questo container (rete Docker `pigreco`) con l'intestazione `X-PiGreco-Archivio: /` (o con `ARCHIVIO_URL=/` nel `.env`): compaiono il pulsante **Archivio** in alto, **Archivia** sul dettaglio dell'email (`archivio.js`, `archivio.css`) e la rubrica **Contatti** (`contatti.js`). "Archivia" invia l'`.eml` originale all'API dell'archivio, raggiunta su `/api/` dalla stessa origine, con la sessione e i permessi dell'utente **dell'archivio**: se non è collegato, la finestra chiede il suo login.
 
-Con `ARCHIVIO_URL` vuota (webmail da sola) questi pulsanti non compaiono. Il cookie di sessione si chiama `WEBMAIL_SID` (`lib/session.php`), per non sovrascrivere la sessione di altre applicazioni PHP sullo stesso server.
+Aperta dalla sua porta, senza quell'intestazione e con `ARCHIVIO_URL` vuota (webmail da sola), questi pulsanti non compaiono. Il cookie di sessione si chiama `WEBMAIL_SID` (`lib/session.php`), per non sovrascrivere la sessione di altre applicazioni PHP sullo stesso server.
 
 ## Filtri sulle email in arrivo
 

@@ -175,16 +175,16 @@ git clone https://github.com/ddcls/pigreco-posta.git /opt/pigreco-posta
 **Senza git, o con il server senza Internet**, usa lo ZIP della versione:
 
 1. dalla pagina [Releases](https://github.com/ddcls/pigreco-posta/releases) scarica
-   `pigreco-posta-<versione>.zip` (per esempio `pigreco-posta-1.1.zip`);
+   `pigreco-posta-<versione>.zip` (per esempio `pigreco-posta-1.2.zip`);
 2. portalo sul server con una pennetta, oppure dalla rete dell'ufficio:
-   `scp pigreco-posta-1.1.zip <utente>@<ip-del-server>:~`
+   `scp pigreco-posta-1.2.zip <utente>@<ip-del-server>:~`
 3. sul server:
 
 ```bash
 cd ~
-unzip pigreco-posta-1.1.zip
-cp -a pigreco-posta-1.1/. /opt/pigreco-posta/
-rm -r pigreco-posta-1.1
+unzip pigreco-posta-1.2.zip
+cp -a pigreco-posta-1.2/. /opt/pigreco-posta/
+rm -r pigreco-posta-1.2
 chmod +x /opt/pigreco-posta/installa.sh /opt/pigreco-posta/scripts/*.sh
 ```
 

@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.0 · ottobre 2026
+Versione 1.2 · ottobre 2026
 
 PiGreco Posta fa due cose:
 
@@ -106,6 +106,7 @@ Le impostazioni sono nel file `.env`, nella cartella di PiGreco Posta:
 | Voce | Valore predefinito | Cosa indica |
 |---|---|---|
 | `WEBMAIL_PORT` | 8080 | Porta della webmail |
+| `WEBMAIL_ASCOLTO` | 0.0.0.0 | `0.0.0.0` = webmail aperta a tutta la rete; `127.0.0.1` = porta chiusa alla rete (con PiGreco Archivio, paragrafo 13) |
 | `POSTA_GESTIONE_PORT` | 8083 | Porta della pagina Gestione caselle |
 | `POSTA_IMAP_PORT` / `POSTA_IMAPS_PORT` | 143 / 993 | Porte IMAP per telefoni e programmi di posta |
 | `POSTA_DIR` | `/srv/posta` | Dove stanno le caselle copiate (una cartella per indirizzo, con la sua `Maildir`) |
@@ -493,18 +494,34 @@ Gli aggiornamenti del database vengono applicati da soli all'avvio.
 ## 13. Collegare PiGreco Archivio
 
 **PiGreco Archivio** è l'archivio documentale degli stessi autori (ufficio 3D, faldoni, OCR,
-modulo per studi legali), di prossima uscita. Stiamo preparando il collegamento a una PiGreco
-Posta già installata: l'obiettivo è che **non si reinstalli niente** e che caselle, email,
-utenti e filtri restino come sono.
+modulo per studi legali), di prossima uscita. Installati sullo stesso server, i due programmi
+**si collegano da soli**, in qualsiasi ordine: non si reinstalla niente e caselle, email, utenti
+e filtri restano come sono.
 
-Una volta collegati, nella webmail compariranno:
+- **La posta c'è già**: si installa l'archivio, che la trova e si collega.
+- **L'archivio c'è già**: si installa la posta con questo manuale; l'archivio la trova subito,
+  senza essere riavviato.
+- **Tutti e due da zero**: l'installatore dell'archivio chiede se installare anche la posta e la
+  installa per prima.
+
+Dall'archivio la webmail si apre con il pulsante **📧 Posta**, all'indirizzo
+`http://<ip-server>:8081/webmail/`. Aperta da lì, nella webmail compaiono:
 
 - il pulsante **Archivia**: l'email e i suoi allegati entrano nell'archivio con un clic, nel
   faldone che scegli;
 - la **rubrica** dei contatti in comune con l'archivio, con i suggerimenti mentre scrivi;
 - dall'archivio, l'invio dei documenti **dalla tua casella**, con la copia in Inviata.
 
-La procedura di collegamento sarà descritta nella guida di installazione di PiGreco Archivio.
+Gli utenti e le caselle della webmail restano quelli di sempre, diversi dagli utenti
+dell'archivio; per Archivia e Contatti serve anche l'accesso all'archivio, che la webmail chiede
+la prima volta.
+
+Sulla sua porta (`http://<ip-server>:8080/webmail/`) la webmail resta quella di sempre, senza i
+pulsanti dell'archivio. Installando l'archivio viene proposto di **chiudere alla rete la porta
+8080**: la webmail resta raggiungibile solo dall'archivio (riga `WEBMAIL_ASCOLTO=127.0.0.1` in
+`.env`). Per riaprirla: `WEBMAIL_ASCOLTO=0.0.0.0` e `docker compose up -d webmail`.
+
+I passi dell'installazione sono nella guida di PiGreco Archivio (`INSTALLA-DEBIAN.md`).
 
 ---
 
