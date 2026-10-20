@@ -4,16 +4,16 @@
 
 *[Read in English](README.md)*
 
-PiGreco Posta è un pacchetto di posta da installare in proprio, pensato per uffici, studi professionali e per chi ha sempre la casella piena:
+PiGreco Posta è un pacchetto di posta da installare sul proprio server, pensato per uffici, studi professionali e per chi ha sempre la casella piena:
 
 ```
 gestore (Gmail, Libero, Aruba, PEC…) ──IMAP──▶ copia sul tuo disco ──IMAP──▶ webmail, telefoni, Thunderbird
-                                     mbsync                    Dovecot
+                                      mbsync                        Dovecot
 ```
 
-- **Copia locale delle caselle dei gestori.** Ogni pochi minuti email nuove e flag vengono copiati dal gestore (IMAP, `mbsync`) in una Maildir sul tuo server, servita da Dovecot. La copia **non cancella mai niente**. Lo spazio dipende dal tuo disco, non dalla quota del gestore.
+- **Copia locale delle caselle dei gestori.** A intervalli di pochi minuti le email nuove e i flag (letta, importante…) vengono copiati dal gestore (IMAP, `mbsync`) in una Maildir sul tuo server, servita da Dovecot. La copia **non cancella mai niente**. Lo spazio dipende dal tuo disco, non dalla quota del gestore.
 - **Liberare spazio presso il gestore, in sicurezza (facoltativo).** Per ogni casella puoi tenere sul gestore solo gli ultimi N giorni. Un'email viene cancellata dal gestore **solo se la sua copia locale è verificata**. Il valore predefinito è 0: non si cancella mai niente.
-- **Webmail.** Più caselle e più utenti. Tre riquadri, funziona anche sul telefono. Ricerca, cartelle, trascinamento, selezione multipla, bozze con salvataggio automatico, ⭐ importanti, **filtri** sul server, temi di colore. L'invio passa dall'SMTP di ogni gestore.
+- **Webmail.** Più caselle e più utenti. Vista a tre riquadri, che funziona anche sul telefono. Ricerca, cartelle, trascinamento delle email nelle cartelle, selezione multipla, bozze con salvataggio automatico, ⭐ importanti, **filtri** sul server, temi di colore. L'invio passa dall'SMTP di ogni gestore.
 - **Pagina "Gestione caselle"** per aggiungere le caselle, provare l'accesso al gestore, vedere lo stato della sincronizzazione e impostare la pulizia.
 - **Tutto in Docker**: webmail (PHP 8.3 + Apache), MySQL 8, Dovecot, mbsync, pagina di gestione.
 
@@ -53,7 +53,7 @@ Poi:
 
 Su un server **Debian** appena installato (sudo, IP fisso, Docker, installazione, backup) segui la guida passo passo [`INSTALLA-DEBIAN.md`](INSTALLA-DEBIAN.md). L'uso della posta è nel manuale, [`manuale/manuale.md`](manuale/manuale.md) (anche in PDF da stampare: [`manuale/manuale.pdf`](manuale/manuale.pdf)).
 
-**Caselle Microsoft** (hotmail/outlook/live/Microsoft 365): accettano solo OAuth2 e non si possono copiare. Gmail, Yahoo e iCloud vogliono una *password per le app*.
+**Caselle Microsoft** (hotmail/outlook/live/Microsoft 365): accettano solo OAuth2 e non si possono copiare. Gmail, Yahoo e iCloud richiedono una *password per le app*.
 
 ## Comandi utili
 
@@ -71,14 +71,14 @@ Caselle e database sono in `/srv/posta`: `sudo ./scripts/backup.sh <cartella>` n
 
 ## Sicurezza
 
-- Prima di esporre la webmail su Internet mettila dietro HTTPS, con un reverse proxy come Caddy, nginx o Traefik. La pagina di gestione (porta 8083) va lasciata solo nella rete dell'ufficio.
-- Le password IMAP/SMTP sono salvate cifrate (AES-256-GCM, chiave in `.env`). Il testo HTML delle email è mostrato in un iframe isolato, senza script.
+- Prima di esporre la webmail su Internet mettila dietro HTTPS, con un reverse proxy come Caddy, nginx o Traefik. La pagina di gestione (porta 8083) deve restare raggiungibile solo dalla rete dell'ufficio.
+- Le password IMAP/SMTP sono salvate cifrate (AES-256-GCM, chiave in `.env`). Il contenuto HTML delle email viene mostrato in un iframe isolato, senza script.
 - Il certificato di Dovecot creato al primo avvio è autofirmato. Sostituisci `/srv/posta/config/ssl/cert.pem` e `key.pem` con uno vero prima di usare la posta dai telefoni fuori dall'ufficio.
 - Hai trovato una vulnerabilità? Vedi [SECURITY.md](SECURITY.md): segnalala in privato, non in una issue pubblica.
 
 ## PiGreco Archivio
 
-PiGreco Posta è fatta dagli autori di **PiGreco Archivio**, l'archivio documentale per uffici e studi legali (ufficio 3D, faldoni, OCR, modulo legale). Se installi PiGreco Archivio sullo stesso server, si collega alla webmail che hai già, senza reinstallare e senza perdere dati. Ottieni il pulsante **Archivia** (l'email e i suoi allegati in archivio con un clic), la rubrica in comune e l'invio dei documenti dalla tua casella.
+PiGreco Posta è fatta dagli autori di **PiGreco Archivio**, l'archivio documentale per uffici e studi legali (ufficio 3D, faldoni, OCR, modulo legale), di prossima uscita. Insieme alla webmail aggiunge il pulsante **Archivia** (l'email e i suoi allegati in archivio con un clic), la rubrica in comune e l'invio dei documenti archiviati dalla tua casella. Stiamo preparando il collegamento di PiGreco Archivio a una PiGreco Posta già installata, senza reinstallare e senza perdere dati.
 
 ## Licenza
 

@@ -1,6 +1,6 @@
 # PiGreco Posta
 
-**Keep a copy of all your mailboxes on your own server and read them with a modern webmail, with one `docker compose up`.**
+**Keep a copy of all your mailboxes on your own server and read them with a modern webmail. Installed with a single command.**
 
 *[Leggi in italiano](README.it.md)*
 
@@ -8,12 +8,12 @@ PiGreco Posta is a self-hosted mail kit for small offices, professional firms an
 
 ```
 provider (Gmail, Libero, Aruba, PEC…) ──IMAP──▶ local copy on your disk ──IMAP──▶ webmail, phones, Thunderbird
-                                     mbsync                      Dovecot
+                                       mbsync                            Dovecot
 ```
 
-- **Local copy of the provider mailboxes.** Every few minutes new mail and flags are copied from the provider (IMAP, `mbsync`) to a Maildir on your server, served by Dovecot. The copy **never deletes anything**. Space depends on your disk, not on the provider's quota.
-- **Free space at the provider, safely (optional).** For each mailbox you can keep only the last N days on the provider. An email is deleted from the provider **only if its local copy has been verified**. The default is 0: nothing is ever deleted.
-- **Webmail.** Multi-account, multi-user. Three-pane layout that also works on phones. Search, folders, drag & drop, multi-select, drafts with autosave, important ⭐, server-side **filters**, colour themes. Sending goes through each provider's own SMTP.
+- **Local copy of the provider mailboxes.** Every few minutes, new mail and flags (read, important…) are copied from the provider (IMAP, `mbsync`) to a Maildir on your server, served by Dovecot. The copy **never deletes anything**. Space depends on your disk, not on the provider's quota.
+- **Free up space at the provider, safely (optional).** For each mailbox you can keep only the last N days on the provider. An email is deleted from the provider **only if its local copy has been verified**. The default is 0: nothing is ever deleted.
+- **Webmail.** Multi-account, multi-user. Three-pane layout that also works on phones. Search, folders, drag & drop into folders, multi-select, drafts with autosave, important ⭐, server-side **filters**, colour themes. Sending goes through each provider's own SMTP.
 - **"Gestione caselle" web page** to add mailboxes, test the provider login, see sync status and set the cleanup.
 - **Everything in Docker**: webmail (PHP 8.3 + Apache), MySQL 8, Dovecot, mbsync, management page.
 
@@ -50,7 +50,7 @@ cd pigreco-posta
 
 Then:
 
-1. **Gestione caselle**, `http://<server>:8083`: add the mailboxes (address, provider login). The page shows the **local password** of each mailbox once.
+1. **Gestione caselle**, `http://<server>:8083`: add the mailboxes (address, provider login). The page shows each mailbox's **local password** only once.
 2. **Webmail**, `http://<server>:8080/webmail/`: log in as `admin` and go to *Impostazioni › Account Email*. For each mailbox set IMAP server `posta`, port 143, STARTTLS, user = email address, password = local password. For SMTP use the provider's server.
 
 The full guide, in Italian, is in [`manuale/manuale.md`](manuale/manuale.md) (also as PDF: [`manuale/manuale.pdf`](manuale/manuale.pdf)). For a fresh **Debian** server (sudo, static IP, Docker, install, backups) there is a step-by-step guide, also in Italian: [`INSTALLA-DEBIAN.md`](INSTALLA-DEBIAN.md).
@@ -80,7 +80,7 @@ Mailboxes and database live in `/srv/posta`: `sudo ./scripts/backup.sh <folder>`
 
 ## PiGreco Archivio
 
-PiGreco Posta is made by the authors of **PiGreco Archivio**, a document archive for offices and law firms (3D office, folders, OCR, legal module). When PiGreco Archivio is installed on the same server, it connects to the webmail you already have, with no reinstall and no data loss. You get the **Archivia** button (archive an email and its attachments with one click), a shared address book, and archive documents sent from your own mailbox.
+PiGreco Posta is made by the authors of **PiGreco Archivio**, a document archive for offices and law firms (3D office, binders, OCR, legal module), coming soon. Together with the webmail it adds the **Archivia** button (archive an email and its attachments with one click), a shared address book, and sending archived documents from your own mailbox. Connecting PiGreco Archivio to a PiGreco Posta that is already installed, with no reinstall and no data loss, is being prepared.
 
 ## License
 

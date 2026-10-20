@@ -493,17 +493,18 @@ Gli aggiornamenti del database vengono applicati da soli all'avvio.
 ## 13. Collegare PiGreco Archivio
 
 **PiGreco Archivio** è l'archivio documentale degli stessi autori (ufficio 3D, faldoni, OCR,
-modulo per studi legali). Se lo installi sullo stesso server, si collega alla webmail che hai
-già: **non si reinstalla niente** e caselle, email, utenti e filtri restano come sono.
+modulo per studi legali), di prossima uscita. Stiamo preparando il collegamento a una PiGreco
+Posta già installata: l'obiettivo è che **non si reinstalli niente** e che caselle, email,
+utenti e filtri restino come sono.
 
-Una volta collegati compaiono nella webmail:
+Una volta collegati, nella webmail compariranno:
 
 - il pulsante **Archivia**: l'email e i suoi allegati entrano nell'archivio con un clic, nel
   faldone che scegli;
 - la **rubrica** dei contatti in comune con l'archivio, con i suggerimenti mentre scrivi;
 - dall'archivio, l'invio dei documenti **dalla tua casella**, con la copia in Inviata.
 
-La procedura di collegamento è descritta nella guida di installazione di PiGreco Archivio.
+La procedura di collegamento sarà descritta nella guida di installazione di PiGreco Archivio.
 
 ---
 
