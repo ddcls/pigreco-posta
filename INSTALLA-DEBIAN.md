@@ -172,19 +172,19 @@ sudo chown "$USER":"$USER" /opt/pigreco-posta
 git clone https://github.com/ddcls/pigreco-posta.git /opt/pigreco-posta
 ```
 
-**Se è ancora privato**, `git clone` risponde *"Repository not found"*. Allora:
+**Senza git, o con il server senza Internet**, usa lo ZIP della versione:
 
-1. su un PC dove sei entrato in GitHub con un account autorizzato, apri la pagina del repository →
-   **Code** → **Download ZIP**: ottieni `pigreco-posta-main.zip`;
+1. dalla pagina [Releases](https://github.com/ddcls/pigreco-posta/releases) scarica
+   `pigreco-posta-<versione>.zip` (per esempio `pigreco-posta-1.0.zip`);
 2. portalo sul server con una pennetta, oppure dalla rete dell'ufficio:
-   `scp pigreco-posta-main.zip <utente>@<ip-del-server>:~`
+   `scp pigreco-posta-1.0.zip <utente>@<ip-del-server>:~`
 3. sul server:
 
 ```bash
 cd ~
-unzip pigreco-posta-main.zip
-cp -a pigreco-posta-main/. /opt/pigreco-posta/
-rm -r pigreco-posta-main
+unzip pigreco-posta-1.0.zip
+cp -a pigreco-posta-1.0/. /opt/pigreco-posta/
+rm -r pigreco-posta-1.0
 chmod +x /opt/pigreco-posta/installa.sh /opt/pigreco-posta/scripts/*.sh
 ```
 
@@ -361,8 +361,8 @@ git pull
 docker compose up -d --build
 ```
 
-Con lo ZIP: scarica il nuovo zip, estrailo e copialo sopra con
-`cp -a pigreco-posta-main/. /opt/pigreco-posta/`, poi `docker compose up -d --build`. `.env` non è
+Con lo ZIP: scarica dalla pagina Releases lo zip della nuova versione, estrailo e copialo sopra con
+`cp -a pigreco-posta-<versione>/. /opt/pigreco-posta/`, poi `docker compose up -d --build`. `.env` non è
 nello zip e resta com'è; i dati sono in `/srv/posta`, fuori dal programma.
 
 **Reinstallare dallo ZIP** (cartella del programma cancellata e rimessa da capo): caselle, database
