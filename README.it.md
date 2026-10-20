@@ -2,7 +2,7 @@
 
 **Tieni una copia di tutte le tue caselle sul tuo server e leggile con una webmail moderna: si installa con un solo comando.**
 
-*[Read in English](README.md)*
+*[Read in English](README.md) · Sito: [ddcls.github.io/pigreco-posta](https://ddcls.github.io/pigreco-posta/)*
 
 PiGreco Posta è un pacchetto di posta da installare sul proprio server, pensato per uffici, studi professionali e per chi ha sempre la casella piena:
 

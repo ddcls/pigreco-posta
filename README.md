@@ -2,7 +2,7 @@
 
 **Keep a copy of all your mailboxes on your own server and read them with a modern webmail. Installed with a single command.**
 
-*[Leggi in italiano](README.it.md)*
+*[Leggi in italiano](README.it.md) · Website: [ddcls.github.io/pigreco-posta](https://ddcls.github.io/pigreco-posta/)*
 
 PiGreco Posta is a self-hosted mail kit for small offices, professional firms and anyone whose provider mailbox is always full:
 
