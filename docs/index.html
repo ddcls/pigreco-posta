@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PiGreco Posta</title>
+<meta name="description" content="Copia tutte le caselle dell'ufficio (Gmail, Libero, Aruba, PEC…) su un server che sta da te e leggile con una webmail moderna, anche dal telefono. Software libero, gratuito, si installa con un comando.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="PiGreco Posta: la posta dell'ufficio, a casa tua">
+<meta property="og:description" content="Una copia di tutte le caselle sul tuo server e una webmail moderna per leggerle, anche dal telefono. Software libero e gratuito.">
+<meta property="og:url" content="https://ddcls.github.io/pigreco-posta/">
+<meta property="og:image" content="https://ddcls.github.io/pigreco-posta/screenshot/webmail.png">
+<meta property="og:locale" content="it_IT">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%238B4513'/%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-size='40' text-anchor='middle' fill='%23fff'%3E%CF%80%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Lato:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: testata a due colonne (tesi a sinistra, webmail vera a destra), poi il
+   "percorso" della posta come elemento portante, sezioni a nastro alternate. */
+:root {
+  --sfondo: #fbf9f6;
+  --nastro: #f3ece4;
+  --carta: #ffffff;
+  --testo: #2c2620;
+  --tenue: #6f6255;
+  --bordo: #e2d9cf;
+  --accento: #8B4513;
+  --accento-scuro: #654321;
+  --accento-testo: #ffffff;
+  --timbro: #8e2440;
+  --ok: #2e7d4f;
+  --codice-sfondo: #2c2620;
+  --codice-testo: #f3ece4;
+  --ombra: 0 18px 50px rgba(60, 35, 15, .16);
+  --titoli: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --corpo: 'Lato', 'Segoe UI', Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --larghezza: 1120px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sfondo: #1c1814; --nastro: #241f1a; --carta: #2b251f; --testo: #efe7de; --tenue: #b3a595;
+    --bordo: #40372e; --accento: #d39a5f; --accento-scuro: #e8b98a; --accento-testo: #1c1814;
+    --timbro: #e08a9f; --ok: #7cc79b; --codice-sfondo: #120f0c; --codice-testo: #efe7de;
+    --ombra: 0 18px 50px rgba(0, 0, 0, .45); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --sfondo: #1c1814; --nastro: #241f1a; --carta: #2b251f; --testo: #efe7de; --tenue: #b3a595;
+  --bordo: #40372e; --accento: #d39a5f; --accento-scuro: #e8b98a; --accento-testo: #1c1814;
+  --timbro: #e08a9f; --ok: #7cc79b; --codice-sfondo: #120f0c; --codice-testo: #efe7de;
+  --ombra: 0 18px 50px rgba(0, 0, 0, .45); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+body {
+  margin: 0; background: var(--sfondo); color: var(--testo);
+  font: 17px/1.6 var(--corpo); -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--accento); }
+a:focus-visible, .pulsante:focus-visible { outline: 3px solid var(--accento); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--titoli); line-height: 1.15; text-wrap: balance; margin: 0; }
+h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; }
+h3 { font-size: 21px; font-weight: 600; }
+p { margin: 0; }
+code { font-family: var(--mono); font-size: .88em; }
+
+.fascia { padding-block: clamp(56px, 8vw, 96px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.fascia.nastro { background: var(--nastro); }
+.dentro { max-width: var(--larghezza); margin: 0 auto; }
+.occhiello { font: 700 13px/1 var(--corpo); letter-spacing: .14em; text-transform: uppercase; color: var(--accento); }
+.intro { display: grid; gap: 14px; max-width: 680px; margin-bottom: 44px; }
+.intro p { color: var(--tenue); font-size: 18px; }
+
+/* ---------- barra ---------- */
+.barra {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: color-mix(in srgb, var(--sfondo) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--bordo);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--sfondo); }
+.barra .dentro { display: flex; align-items: center; gap: 24px; height: 60px; }
+.marchio { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--testo); font: 800 20px var(--titoli); }
+.marchio .pi { width: 32px; height: 32px; border-radius: 8px; background: var(--accento); color: var(--accento-testo); display: grid; place-items: center; font: 600 22px/1 var(--titoli); }
+.barra nav { display: flex; gap: 22px; margin-left: auto; align-items: center; }
+.barra nav a { color: var(--tenue); text-decoration: none; font-size: 15px; font-weight: 700; }
+.barra nav a:hover { color: var(--testo); }
+.barra nav a.github { color: var(--accento); }
+@media (max-width: 760px) { .barra nav a:not(.github) { display: none; } }
+
+/* ---------- testata ---------- */
+.testata { padding-top: clamp(40px, 6vw, 72px); padding-bottom: clamp(40px, 5vw, 56px); }
+.testata .dentro { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 5vw, 64px); align-items: center; }
+.testata h1 { font-size: clamp(40px, 6vw, 68px); font-weight: 800; letter-spacing: -.01em; }
+.testata h1 em { font-style: italic; font-weight: 600; color: var(--accento); }
+.tesi { display: grid; gap: 22px; }
+.tesi > p { font-size: 19px; color: var(--tenue); max-width: 520px; }
+.azioni { display: flex; flex-wrap: wrap; gap: 12px; }
+.pulsante {
+  display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 8px;
+  font: 700 16px var(--corpo); text-decoration: none; border: 2px solid var(--accento);
+  background: var(--accento); color: var(--accento-testo); transition: transform .15s, background .15s;
+}
+.pulsante:hover { transform: translateY(-1px); background: var(--accento-scuro); border-color: var(--accento-scuro); }
+.pulsante.vuoto { background: transparent; color: var(--accento); }
+.pulsante.vuoto:hover { background: var(--carta); color: var(--accento-scuro); }
+.piccolo { font-size: 14px; color: var(--tenue); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.piccolo span::before { content: "✓ "; color: var(--ok); font-weight: 700; }
+
+.finestra { border-radius: 12px; overflow: hidden; border: 1px solid var(--bordo); background: var(--carta); box-shadow: var(--ombra); position: relative; }
+.finestra .titolo { display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; background: var(--nastro); border-bottom: 1px solid var(--bordo); }
+.finestra .titolo i { width: 10px; height: 10px; border-radius: 50%; background: var(--bordo); }
+.finestra .titolo b { margin-left: 10px; font: 400 12px var(--mono); color: var(--tenue); }
+.vetrina { position: relative; }
+
+/* timbro postale: versione e licenza */
+.timbro {
+  position: absolute; right: -14px; bottom: -26px; width: 118px; height: 118px; border-radius: 50%;
+  border: 3px double var(--timbro); color: var(--timbro); display: grid; place-items: center; text-align: center;
+  font: 700 11px/1.25 var(--corpo); letter-spacing: .1em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--sfondo) 82%, transparent); transform: rotate(-12deg);
+}
+.timbro strong { display: block; font: 800 30px/1 var(--titoli); letter-spacing: 0; text-transform: none; margin: 2px 0; }
+@media (max-width: 900px) {
+  .testata .dentro { grid-template-columns: minmax(0, 1fr); }
+  .timbro { right: 4px; bottom: -30px; width: 100px; height: 100px; }
+  .timbro strong { font-size: 24px; }
+}
+
+/* ---------- problema ---------- */
+.problemi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.problemi article { display: grid; gap: 10px; align-content: start; padding-top: 18px; border-top: 2px solid var(--testo); }
+.problemi p { color: var(--tenue); }
+@media (max-width: 820px) { .problemi { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- percorso della posta ---------- */
+.percorso { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 0; }
+.tappa { background: var(--carta); border: 1px solid var(--bordo); border-radius: 12px; padding: 22px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tappa.casa { border: 2px solid var(--accento); }
+.tappa .dove { font: 700 12px/1 var(--corpo); letter-spacing: .12em; text-transform: uppercase; color: var(--tenue); }
+.tappa.casa .dove { color: var(--accento); }
+.tappa p { color: var(--tenue); font-size: 15px; }
+.tappa ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.tappa li { font: 400 13px var(--mono); padding: 3px 8px; border-radius: 4px; background: var(--nastro); color: var(--testo); }
+.freccia { display: grid; place-items: center; align-content: center; gap: 6px; padding: 0 10px; min-width: 112px; text-align: center; }
+.freccia svg { width: 100%; height: 18px; overflow: visible; }
+.freccia svg line { stroke: var(--accento); stroke-width: 2; stroke-dasharray: 6 5; }
+.freccia svg path { fill: var(--accento); }
+.freccia small { font: 600 12px/1.3 var(--mono); color: var(--accento); }
+.freccia small span { display: block; font-family: var(--corpo); font-weight: 400; color: var(--tenue); }
+@media (prefers-reduced-motion: no-preference) {
+  .freccia svg line { animation: scorre 1.2s linear infinite; }
+  @keyframes scorre { to { stroke-dashoffset: -11; } }
+}
+@media (max-width: 900px) {
+  .percorso { grid-template-columns: minmax(0, 1fr); }
+  .freccia { padding: 8px 0; grid-template-columns: 44px auto; justify-content: center; align-items: center; text-align: left; gap: 10px; min-height: 64px; }
+  .freccia svg { width: 44px; height: 18px; transform: rotate(90deg); }
+}
+.nota-percorso { margin-top: 26px; color: var(--tenue); font-size: 15px; max-width: 760px; }
+
+/* ---------- funzioni ---------- */
+.funzioni { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px 32px; }
+.funzioni article { display: grid; gap: 8px; align-content: start; }
+.funzioni .icona { width: 40px; height: 40px; border-radius: 10px; background: var(--nastro); display: grid; place-items: center; color: var(--accento); }
+.funzioni .icona svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.funzioni p { color: var(--tenue); font-size: 16px; }
+@media (max-width: 900px) { .funzioni { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .funzioni { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- pulizia sicura (dettaglio) ---------- */
+.pulizia { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
+.pulizia .testo { display: grid; gap: 16px; }
+.pulizia .testo p { color: var(--tenue); }
+.regola { background: var(--carta); border: 1px solid var(--bordo); border-radius: 12px; padding: 22px 24px; font: 400 14px/1.7 var(--mono); }
+.regola .riga { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px dashed var(--bordo); }
+.regola .riga:last-child { border-bottom: 0; }
+.regola .si { color: var(--ok); font-weight: 600; white-space: nowrap; }
+.regola .no { color: var(--timbro); font-weight: 600; white-space: nowrap; }
+@media (max-width: 820px) { .pulizia { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- telefono e gestione ---------- */
+.schermi { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(28px, 5vw, 56px); align-items: center; }
+.telefoni { display: flex; gap: 18px; justify-content: center; align-items: flex-start; }
+.telefono { width: min(230px, 46%); border-radius: 30px; padding: 8px; background: var(--codice-sfondo); box-shadow: var(--ombra); }
+.telefono img { border-radius: 23px; }
+.telefono:nth-child(2) { margin-top: 48px; }
+.schermi .testo { display: grid; gap: 16px; }
+.schermi .testo p { color: var(--tenue); }
+@media (max-width: 820px) { .schermi { grid-template-columns: minmax(0, 1fr); } .schermi .testo { order: -1; } }
+.gestione { margin-top: clamp(48px, 7vw, 80px); display: grid; gap: 18px; }
+.gestione .testo { max-width: 680px; display: grid; gap: 10px; }
+.gestione .testo p { color: var(--tenue); }
+
+/* ---------- per chi ---------- */
+.perchi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.perchi article { display: grid; gap: 8px; align-content: start; }
+.perchi p { color: var(--tenue); font-size: 16px; }
+@media (max-width: 900px) { .perchi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .perchi { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- installazione ---------- */
+.installa { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(28px, 5vw, 56px); align-items: start; }
+.terminale { border-radius: 12px; background: var(--codice-sfondo); color: var(--codice-testo); box-shadow: var(--ombra); overflow: hidden; min-width: 0; }
+.terminale .titolo { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid color-mix(in srgb, var(--codice-testo) 15%, transparent); font: 400 12px var(--mono); color: color-mix(in srgb, var(--codice-testo) 65%, transparent); }
+.terminale button { font: 600 12px var(--corpo); padding: 5px 10px; border-radius: 5px; border: 1px solid color-mix(in srgb, var(--codice-testo) 30%, transparent); background: transparent; color: var(--codice-testo); cursor: pointer; }
+.terminale button:focus-visible { outline: 2px solid var(--accento); outline-offset: 2px; }
+.terminale pre { margin: 0; padding: 18px 20px 22px; overflow-x: auto; font: 400 15px/1.8 var(--mono); }
+@media (max-width: 520px) { .terminale pre { font-size: 13px; padding: 14px 16px 18px; } }
+.terminale pre .c { color: color-mix(in srgb, var(--codice-testo) 50%, transparent); }
+.passi { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 14px; counter-reset: passo; }
+.passi li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; counter-increment: passo; color: var(--tenue); }
+.passi li::before { content: counter(passo); width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--accento); color: var(--accento); display: grid; place-items: center; font: 800 15px var(--titoli); }
+.passi strong { color: var(--testo); }
+.requisiti { display: grid; gap: 18px; }
+.requisiti dl { margin: 0; display: grid; gap: 14px; }
+.requisiti dt { font-weight: 700; }
+.requisiti dd { margin: 2px 0 0; color: var(--tenue); font-size: 16px; }
+.avviso { border-left: 3px solid var(--timbro); padding: 4px 0 4px 14px; color: var(--tenue); font-size: 15px; }
+@media (max-width: 900px) { .installa { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- libero ---------- */
+.libero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 64px); }
+.libero .colonna { display: grid; gap: 14px; align-content: start; }
+.libero p { color: var(--tenue); }
+.libero ul { margin: 0; padding-left: 20px; color: var(--tenue); display: grid; gap: 6px; }
+.archivio { border: 2px dashed var(--bordo); border-radius: 12px; padding: 24px; display: grid; gap: 10px; align-content: start; }
+.archivio .occhiello { color: var(--timbro); }
+@media (max-width: 820px) { .libero { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- piede ---------- */
+footer { border-top: 1px solid var(--bordo); padding-block: 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); color: var(--tenue); font-size: 14px; }
+footer .dentro { display: flex; flex-wrap: wrap; gap: 10px 28px; justify-content: space-between; }
+footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer a { color: var(--tenue); }
+</style>
+</head>
+<body>
+
+<header class="barra">
+  <div class="dentro">
+    <a class="marchio" href="#"><span class="pi" aria-hidden="true">π</span>PiGreco Posta</a>
+    <nav aria-label="Sezioni">
+      <a href="#come-funziona">Come funziona</a>
+      <a href="#funzioni">Funzioni</a>
+      <a href="#installazione">Installazione</a>
+      <a class="github" href="https://github.com/ddcls/pigreco-posta">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="fascia testata">
+  <div class="dentro">
+    <div class="tesi">
+      <span class="occhiello">Webmail e copia locale delle caselle</span>
+      <h1>La posta dell'ufficio, <em>a casa tua.</em></h1>
+      <p>PiGreco Posta copia tutte le caselle dell'ufficio su un computer che sta da te e te le fa leggere con una webmail moderna, anche dal telefono. Gmail, Libero, Aruba, PEC: una sola pagina, un solo accesso.</p>
+      <div class="azioni">
+        <a class="pulsante" href="https://github.com/ddcls/pigreco-posta/releases/tag/v1.0">Scarica la versione 1.0</a>
+        <a class="pulsante vuoto" href="#come-funziona">Come funziona</a>
+      </div>
+      <div class="piccolo"><span>Gratuito</span><span>Software libero</span><span>Si installa con un comando</span></div>
+    </div>
+    <div class="vetrina">
+      <div class="finestra">
+        <div class="titolo"><i></i><i></i><i></i><b>http://server-ufficio:8080/webmail/</b></div>
+        <img src="screenshot/webmail.png" width="1440" height="900" alt="La webmail di PiGreco Posta: cartelle a sinistra, elenco delle email al centro, email aperta a destra">
+      </div>
+      <div class="timbro" aria-hidden="true"><div>versione<strong>1.0</strong>2026</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="fascia">
+  <div class="dentro">
+    <div class="intro">
+      <span class="occhiello">Il problema</span>
+      <h2>Il gestore della posta non è un archivio.</h2>
+    </div>
+    <div class="problemi">
+      <article>
+        <h3>La casella è sempre piena</h3>
+        <p>Lo spazio del gestore finisce, arriva l'avviso e bisogna scegliere cosa cancellare. Spesso sono proprio le email che serviranno fra tre anni.</p>
+      </article>
+      <article>
+        <h3>Troppe caselle, troppe password</h3>
+        <p>La casella dello studio, quella personale, la PEC: ognuna con il suo sito, la sua app e la sua ricerca. Trovare un'email vuol dire cercarla in tre posti.</p>
+      </article>
+      <article>
+        <h3>Le email stanno a casa d'altri</h3>
+        <p>Se il gestore cambia le condizioni, blocca l'account o chiude il servizio, anni di corrispondenza restano dall'altra parte.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="fascia nastro" id="come-funziona">
+  <div class="dentro">
+    <div class="intro">
+      <span class="occhiello">Come funziona</span>
+      <h2>Ogni email fa un passaggio in più: da te.</h2>
+      <p>Le caselle restano quelle che hai già. PiGreco Posta ne tiene una copia aggiornata sul tuo computer, e tu leggi e scrivi da lì.</p>
+    </div>
+    <div class="percorso">
+      <div class="tappa">
+        <span class="dove">Dal gestore</span>
+        <h3>Le caselle di sempre</h3>
+        <p>Nessun cambio di indirizzo, nessun trasloco. Il gestore continua a ricevere la posta come oggi.</p>
+        <ul><li>Gmail</li><li>Libero</li><li>Aruba</li><li>PEC</li><li>Tiscali</li></ul>
+      </div>
+      <div class="freccia" aria-hidden="true">
+        <svg viewBox="0 0 100 18" preserveAspectRatio="none"><line x1="0" y1="9" x2="88" y2="9"/><path d="M86 2 L100 9 L86 16 Z"/></svg>
+        <small>mbsync<span>ogni pochi minuti</span></small>
+      </div>
+      <div class="tappa casa">
+        <span class="dove">Sul tuo computer</span>
+        <h3>La copia locale</h3>
+        <p>Email nuove e stato (letta, importante) arrivano sul tuo disco. La copia non cancella mai niente, e lo spazio è quello del tuo disco.</p>
+        <ul><li>Dovecot</li><li>Maildir</li><li>/srv/posta</li></ul>
+      </div>
+      <div class="freccia" aria-hidden="true">
+        <svg viewBox="0 0 100 18" preserveAspectRatio="none"><line x1="0" y1="9" x2="88" y2="9"/><path d="M86 2 L100 9 L86 16 Z"/></svg>
+        <small>IMAP<span>porta 143 o 993</span></small>
+      </div>
+      <div class="tappa">
+        <span class="dove">Dove la leggi</span>
+        <h3>Webmail e telefoni</h3>
+        <p>La webmail di PiGreco Posta dal browser, oppure il programma che usi già: Thunderbird, Outlook, la posta del telefono.</p>
+        <ul><li>Webmail</li><li>Thunderbird</li><li>iPhone</li><li>Android</li></ul>
+      </div>
+    </div>
+    <p class="nota-percorso">Le email che scrivi partono dal server del tuo gestore, come sempre, e una copia resta nella cartella Inviata.</p>
+  </div>
+</section>
+
+<section class="fascia" id="funzioni">
+  <div class="dentro">
+    <div class="intro">
+      <span class="occhiello">Funzioni</span>
+      <h2>Tutto quello che serve in ufficio, niente di più.</h2>
+    </div>
+    <div class="funzioni">
+      <article>
+        <span class="icona"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>
+        <h3>Più caselle, più persone</h3>
+        <p>Tutte le caselle dell'ufficio in una pagina. Ogni collega entra con il suo nome e vede le caselle che gli spettano.</p>
+      </article>
+      <article>
+        <span class="icona"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></span>
+        <h3>Ricerca in tutte le cartelle</h3>
+        <p>Per mittente, destinatario, oggetto o testo, in una cartella o in tutte insieme. Le email importanti si segnano con la stella.</p>
+      </article>
+      <article>
+        <span class="icona"><svg viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></svg></span>
+        <h3>Filtri automatici</h3>
+        <p>Le email del commercialista nella sua cartella, le newsletter già lette. I filtri lavorano sul server, anche a computer spento.</p>
+      </article>
+      <article>
+        <span class="icona"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+        <h3>Cartelle e trascinamento</h3>
+        <p>Crei le tue cartelle, ci trascini dentro le email, ne selezioni dieci e le sposti in una volta.</p>
+      </article>
+      <article>
+        <span class="icona"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
+        <h3>Bozze che non si perdono</h3>
+        <p>Mentre scrivi, la bozza si salva da sola ogni 30 secondi. La riprendi dopo, anche da un altro computer.</p>
+      </article>
+      <article>
+        <span class="icona"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></span>
+        <h3>Backup in un solo file</h3>
+        <p>Un comando salva caselle, database e impostazioni in un unico file, da copiare su un disco esterno.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="fascia nastro">
+  <div class="dentro pulizia">
+    <div class="testo">
+      <span class="occhiello">Liberare spazio, in sicurezza</span>
+      <h2>Il gestore tiene solo gli ultimi mesi. Tu tieni tutto.</h2>
+      <p>Per ogni casella puoi decidere quanti giorni di posta lasciare sul gestore, per esempio 90. Le email più vecchie vengono tolte dal gestore, ma solo dopo aver controllato che la copia sul tuo computer c'è davvero.</p>
+      <p>All'inizio il valore è zero: non si cancella niente finché non lo decidi tu, e prima di confermare la pagina ti mostra quante email verranno tolte.</p>
+    </div>
+    <div class="regola" role="table" aria-label="Quando un'email viene tolta dal gestore">
+      <div class="riga" role="row"><span role="cell">email del 3 marzo, copia locale verificata</span><span class="si" role="cell">si toglie</span></div>
+      <div class="riga" role="row"><span role="cell">email del 3 marzo, copia non trovata</span><span class="no" role="cell">resta</span></div>
+      <div class="riga" role="row"><span role="cell">email della settimana scorsa</span><span class="no" role="cell">resta</span></div>
+      <div class="riga" role="row"><span role="cell">giorni da tenere = 0 (predefinito)</span><span class="no" role="cell">resta tutto</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="fascia">
+  <div class="dentro">
+    <div class="schermi">
+      <div class="telefoni">
+        <div class="telefono"><img src="screenshot/telefono-elenco.png" width="780" height="1688" alt="PiGreco Posta sul telefono: l'elenco delle email" loading="lazy"></div>
+        <div class="telefono"><img src="screenshot/telefono-lettura.png" width="780" height="1688" alt="PiGreco Posta sul telefono: un'email aperta" loading="lazy"></div>
+      </div>
+      <div class="testo">
+        <span class="occhiello">Anche dal telefono</span>
+        <h2>Una pagina sola, che si adatta allo schermo.</h2>
+        <p>Sul telefono la webmail mostra un riquadro alla volta: le cartelle, l'elenco, l'email. Il pulsante ＋ in basso scrive una nuova email.</p>
+        <p>Preferisci l'app di posta del telefono? Collegala alla copia locale e vedi le stesse cartelle e le stesse email lette.</p>
+      </div>
+    </div>
+    <div class="gestione">
+      <div class="testo">
+        <span class="occhiello">Gestione caselle</span>
+        <h2>Le caselle si aggiungono da una pagina web.</h2>
+        <p>Indirizzo, password del gestore, «Prova l'accesso». Poi la pagina mostra per ogni casella quante email sono state copiate e quando è avvenuta l'ultima sincronizzazione.</p>
+      </div>
+      <div class="finestra">
+        <div class="titolo"><i></i><i></i><i></i><b>http://server-ufficio:8083/</b></div>
+        <img src="screenshot/gestione-caselle.png" width="1280" height="600" alt="La pagina Gestione caselle con l'elenco delle caselle copiate e l'ora dell'ultima sincronizzazione" loading="lazy">
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="fascia nastro">
+  <div class="dentro">
+    <div class="intro">
+      <span class="occhiello">Per chi è</span>
+      <h2>Pensato per chi lavora con la posta tutto il giorno.</h2>
+    </div>
+    <div class="perchi">
+      <article><h3>Studi professionali</h3><p>Avvocati, commercialisti, geometri: anni di corrispondenza con i clienti da conservare e ritrovare.</p></article>
+      <article><h3>Piccole aziende</h3><p>Più persone sulle stesse caselle, ordini e fatture che arrivano per email, un ufficio da far funzionare.</p></article>
+      <article><h3>Chi usa la PEC</h3><p>Ricevute e messaggi certificati copiati sul tuo disco, insieme alla posta normale.</p></article>
+      <article><h3>Associazioni ed enti</h3><p>Caselle condivise fra volontari che cambiano, senza dare a tutti la password del gestore.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="fascia" id="installazione">
+  <div class="dentro installa">
+    <div>
+      <div class="intro" style="margin-bottom: 26px">
+        <span class="occhiello">Installazione</span>
+        <h2>Tre righe sul terminale.</h2>
+      </div>
+      <div class="terminale">
+        <div class="titolo"><span>server Linux con Docker</span><button type="button" id="copia-comandi">Copia</button></div>
+<pre id="comandi">git clone https://github.com/ddcls/pigreco-posta.git
+cd pigreco-posta
+./installa.sh   <span class="c"># crea le password, avvia tutto</span></pre>
+      </div>
+      <ol class="passi">
+        <li><span><strong>Aggiungi le caselle</strong> nella pagina Gestione caselle, all'indirizzo <code>http://server:8083</code>.</span></li>
+        <li><span><strong>Entra nella webmail</strong> su <code>http://server:8080/webmail/</code> e collega le caselle alla copia locale.</span></li>
+        <li><span><strong>Fai il backup</strong> su un disco esterno con <code>scripts/backup.sh</code>: un file con tutto dentro.</span></li>
+      </ol>
+    </div>
+    <div class="requisiti">
+      <dl>
+        <div><dt>Un computer sempre acceso</dt><dd>Un piccolo server o un mini PC in ufficio con Linux. Per un server Debian nuovo c'è una guida passo passo, dall'IP fisso al backup.</dd></div>
+        <div><dt>Docker</dt><dd>Webmail, database, copia delle caselle e pagina di gestione partono insieme con Docker Compose.</dd></div>
+        <div><dt>Le password delle caselle</dt><dd>Gmail, Yahoo e iCloud richiedono una «password per le app», che si crea dalle impostazioni dell'account.</dd></div>
+        <div><dt>Manuale in italiano</dt><dd><a href="https://github.com/ddcls/pigreco-posta/blob/main/manuale/manuale.pdf">Il manuale in PDF</a> spiega ogni funzione, anche a chi non è un tecnico. <a href="https://github.com/ddcls/pigreco-posta/blob/main/INSTALLA-DEBIAN.md">La guida per Debian</a> segue l'installazione dall'inizio.</dd></div>
+      </dl>
+      <p class="avviso">Le caselle Microsoft (Hotmail, Outlook, Live, Microsoft 365) accettano solo l'accesso OAuth2 e per ora non si possono copiare. L'interfaccia è in italiano.</p>
+    </div>
+  </div>
+</section>
+
+<section class="fascia nastro">
+  <div class="dentro libero">
+    <div class="colonna">
+      <span class="occhiello">Software libero</span>
+      <h2>Gratuito, aperto, e resta tuo.</h2>
+      <p>PiGreco Posta è distribuito con la licenza GNU AGPL 3.0. Il codice è pubblico: chiunque può usarlo, studiarlo, modificarlo e condividerlo, e chi lo offre come servizio con delle modifiche deve pubblicarle con la stessa licenza.</p>
+      <ul>
+        <li>Le email stanno sul tuo disco, nel formato standard Maildir.</li>
+        <li>Le password delle caselle sono salvate cifrate (AES-256-GCM).</li>
+        <li>Le email vengono mostrate in un riquadro isolato, senza script.</li>
+        <li>Nessun abbonamento e nessun servizio esterno oltre al tuo gestore di posta.</li>
+      </ul>
+    </div>
+    <div class="archivio">
+      <span class="occhiello">Prossimamente</span>
+      <h3>PiGreco Archivio</h3>
+      <p>Dagli stessi autori, l'archivio documentale per uffici e studi legali: l'ufficio in 3D con armadi e faldoni, la ricerca nel testo dei documenti, il modulo per gli studi legali.</p>
+      <p>Insieme a PiGreco Posta aggiunge il pulsante <strong>Archivia</strong>: l'email e i suoi allegati entrano nel faldone giusto con un clic.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="dentro">
+    <span>PiGreco Posta 1.0 · © 2026 Criscione Enzo · software libero AGPL-3.0, senza alcuna garanzia</span>
+    <nav aria-label="Collegamenti">
+      <a href="https://github.com/ddcls/pigreco-posta">Codice sorgente</a>
+      <a href="https://github.com/ddcls/pigreco-posta/issues">Segnalazioni e suggerimenti</a>
+      <a href="https://github.com/ddcls/pigreco-posta/blob/main/README.md">English</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('copia-comandi').addEventListener('click', function () {
+    var pulsante = this;
+    var testo = 'git clone https://github.com/ddcls/pigreco-posta.git\ncd pigreco-posta\n./installa.sh';
+    var fatto = function () { pulsante.textContent = 'Copiato'; setTimeout(function () { pulsante.textContent = 'Copia'; }, 2000); };
+    var seleziona = function () {
+      var r = document.createRange(); r.selectNodeContents(document.getElementById('comandi'));
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      pulsante.textContent = 'Premi Ctrl+C';
+    };
+    try {
+      navigator.clipboard.writeText(testo).then(fatto, seleziona);
+    } catch (e) { seleziona(); }
+  });
+</script>
+</body>
+</html>
