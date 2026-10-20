@@ -61,7 +61,9 @@ services:
     image: pigreco-posta/webmail:locale
     restart: unless-stopped
     ports:
-      - "${WEBMAIL_PORT:-8080}:80"
+      # WEBMAIL_ASCOLTO=127.0.0.1 chiude la porta alla rete (resta raggiungibile
+      # solo dal server): con PiGreco Archivio si entra da :8081/webmail/
+      - "${WEBMAIL_ASCOLTO:-0.0.0.0}:${WEBMAIL_PORT:-8080}:80"
     volumes:
       - ./webmail:/var/www/webmail:ro
     environment:
@@ -82,15 +84,20 @@ services:
       - IMAP_DEFAULT_PORT=${WEBMAIL_IMAP_PORT:-143}
       - IMAP_DEFAULT_SECURITY=${WEBMAIL_IMAP_SECURITY:-starttls}
       - IMAP_TLS_VERIFY=${WEBMAIL_IMAP_TLS_VERIFY:-0}
-      # Vuota = webmail da sola. "/" = collegata a PiGreco Archivio, che la
-      # pubblica sul proprio indirizzo (pulsanti Archivio/Archivia, rubrica)
+      # Di solito vuota: PiGreco Archivio installato sullo stesso server si fa
+      # riconoscere da solo (intestazione X-PiGreco-Archivio del suo proxy) e
+      # solo le pagine aperte da lì mostrano Archivio/Archivia e la rubrica.
+      # "/" = sempre collegata (webmail pubblicata in altro modo dall'Archivio)
       - ARCHIVIO_URL=${ARCHIVIO_URL:-}
     depends_on:
       db:
         condition: service_healthy
     networks:
-      - default
-      - pigreco
+      default:
+      pigreco:
+        # Nome fisso con cui PiGreco Archivio la raggiunge (proxy di /webmail/)
+        aliases:
+          - pigreco-webmail
 
   # ============================================
   # DATABASE DELLA WEBMAIL

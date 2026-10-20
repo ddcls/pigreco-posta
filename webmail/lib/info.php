@@ -28,6 +28,6 @@
  * il codice sorgente (§13). La stessa versione è in posta/script/gestione.py.
  */
 
-const PIGRECO_POSTA_VERSIONE = '1.0';
+const PIGRECO_POSTA_VERSIONE = '1.1';
 const PIGRECO_POSTA_AUTORE = 'Criscione Enzo';
 const PIGRECO_POSTA_SORGENTE = 'https://github.com/ddcls/pigreco-posta';
