@@ -158,7 +158,7 @@ if [[ ! "$r" =~ ^[nN] ]]; then
     ./scripts/password-gestione.sh admin
 fi
 
-ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
 ip="${ip:-<ip-server>}"
 echo
 echo "PiGreco Posta è attiva:"
