@@ -30,6 +30,10 @@ insieme a questo programma (file LICENSE). In caso contrario, vedi
 - Niente intestazione nei componenti di terzi (`webmail/phpmailer/`, `webmail/fontawesome/`, `webmail/vendor/`, vedi `THIRD-PARTY.md`), né in json/md/file di esempio.
 - L'anno resta quello della prima pubblicazione (2026).
 
+## Versione e informazioni
+
+La versione è in due punti da cambiare insieme: `webmail/lib/info.php` (`PIGRECO_POSTA_VERSIONE`, con autore e indirizzo del codice sorgente) e `posta/script/gestione.py` (`VERSIONE`, `SORGENTE`). Si vede nella finestra **Informazioni** della webmail (menu utente, `#informazioniModal` in `index.php`), in fondo alla pagina di login e alla pagina Gestione caselle: copyright, licenza, nessuna garanzia e link al sorgente sono richiesti dalla AGPL (§5 d, §13), non toglierli. Ogni versione pubblicata ha un tag `vX.Y` e una release su GitHub.
+
 ## Manuale
 
 `manuale/manuale.md` è il testo; `manuale/manuale.pdf` si rigenera dopo ogni modifica con `manuale/genera_pdf.py` (pandoc + Playwright/Chromium; sul PC di sviluppo `~/venv-manuale/bin/python manuale/genera_pdf.py`) e va nello stesso commit. La versione in copertina e a piè di pagina viene dalla riga `Versione …` in testa al manuale.

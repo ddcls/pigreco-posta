@@ -40,6 +40,11 @@ from urllib.parse import parse_qs, urlencode, urlparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import postaconf as pc  # noqa: E402
 
+# Versione e codice sorgente (la stessa versione è in webmail/lib/info.php):
+# la AGPL chiede di mostrare copyright, licenza e dove trovare il sorgente
+VERSIONE = '1.0'
+SORGENTE = 'https://github.com/ddcls/pigreco-posta'
+
 PORTA = int(os.environ.get('POSTA_GESTIONE_PORTA_INTERNA', '8080'))
 DURATA_SESSIONE = 30 * 60
 TENTATIVI_MAX, BLOCCO = 5, 5 * 60
@@ -112,6 +117,8 @@ dialog { max-width:620px; width:calc(100% - 32px); border:1px solid var(--bordo)
 dialog::backdrop { background:rgba(0,0,0,.45); }
 dialog h2 { margin-top:0; font-size:18px; }
 dialog ul { padding-left:20px; margin:6px 0 10px; }
+footer { max-width:1000px; margin:0 auto; padding:4px 16px 20px; text-align:center; color:var(--tenue); font-size:12px; }
+footer a { color:inherit; }
 """
 
 
@@ -166,7 +173,10 @@ class Gestione(BaseHTTPRequestHandler):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(titolo)} – PiGreco Posta</title><style>{STILE}</style></head>
 <body><header><h1>PiGreco Posta · Gestione caselle</h1>{uscita}</header>
-<main>{contenuto}</main></body></html>""")
+<main>{contenuto}</main>
+<footer>PiGreco Posta {VERSIONE} · © 2026 Criscione Enzo · software libero
+<a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">AGPL-3.0</a>, senza garanzia ·
+<a href="{SORGENTE}" target="_blank" rel="noopener noreferrer">codice sorgente</a></footer></body></html>""")
 
     def modulo(self):
         lunghezza = int(self.headers.get('Content-Length', '0') or 0)

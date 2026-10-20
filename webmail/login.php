@@ -27,6 +27,7 @@ ini_set('log_errors', 1);
 require_once __DIR__ . '/lib/session.php';
 avviaSessione();
 require_once __DIR__ . '/lib/tema.php';
+require_once __DIR__ . '/lib/info.php';
 // Messaggio di logout
 $logoutMessage = '';
 if (isset($_GET['logged_out'])) {
@@ -253,6 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: var(--pericolo);
             border-left: 3px solid var(--pericolo);
         }
+        .login-piede a { color: inherit; }
         .login-piede {
             padding: 12px;
             border-top: 1px solid var(--bordo);
@@ -260,14 +262,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-align: center;
             color: var(--testo-tenue);
             font-size: 12px;
-        }
-        .debug-info {
-            background: var(--pannello);
-            padding: 10px;
-            border-radius: var(--raggio);
-            margin-bottom: 16px;
-            font-size: 12px;
-            display: none; /* Nascondi per default, mostra solo in debug */
         }
     </style>
 </head>
@@ -288,13 +282,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
         
-        <div class="debug-info">
-            <strong>Debug Info:</strong><br>
-            PHP Version: <?php echo phpversion(); ?><br>
-            Session Status: <?php echo session_status(); ?><br>
-            Session ID: <?php echo session_id(); ?><br>
-            Metodo: <?php echo $_SERVER['REQUEST_METHOD']; ?>
-        </div>
         <?php if ($logoutMessage): ?>
             <div class="alert alert-success" style="background: var(--ok-chiaro); color: #1e7a45; border-left: 3px solid var(--ok);">
                 <i class="fas fa-check-circle"></i>
@@ -321,7 +308,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="login-piede">
-            <p>© <?php echo date('Y'); ?> PiGreco Posta</p>
+            <p>PiGreco Posta <?php echo htmlspecialchars(PIGRECO_POSTA_VERSIONE); ?> · © 2026 <?php echo htmlspecialchars(PIGRECO_POSTA_AUTORE); ?> ·
+               software libero <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">AGPL-3.0</a>, senza garanzia ·
+               <a href="<?php echo htmlspecialchars(PIGRECO_POSTA_SORGENTE); ?>" target="_blank" rel="noopener noreferrer">codice sorgente</a></p>
         </div>
     </div>
     </div>

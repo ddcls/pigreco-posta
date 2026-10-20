@@ -229,7 +229,7 @@ La schermata è divisa in tre parti, come nei programmi di posta più diffusi.
 | **Cerca nella posta…** | Cerca tra le email (vedi sotto); il pulsante a destra apre le **opzioni di ricerca** |
 | **🔔** con un numero | Le email **non lette** di tutte le caselle |
 | **⚙** | Impostazioni (amministratore della webmail) oppure **Aspetto** |
-| **Cerchio con l'iniziale** | Menu utente: **Impostazioni**, **Aspetto**, **Filtri**, **Esci** |
+| **Cerchio con l'iniziale** | Menu utente: **Impostazioni**, **Aspetto**, **Filtri**, **Informazioni** (versione, autore, licenza e codice sorgente), **Esci** |
 
 **A sinistra** — **✏ Nuova email**, il menu **Account** con la casella da consultare e le
 cartelle **Posta in arrivo**, **Inviata**, **Bozze**, **Indesiderata** e **Cestino**. Sotto

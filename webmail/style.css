@@ -1392,6 +1392,16 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accento); }
 }
 .aspetto-check { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
+/* Finestra "Informazioni" */
+.informazioni-modal { max-width: 560px; }
+.informazioni-corpo { padding: 18px 20px 6px; overflow-y: auto; line-height: 1.5; }
+.informazioni-corpo p { margin: 0 0 10px; }
+.informazioni-corpo a { color: var(--accento); }
+.informazioni-nome { font-size: 20px; font-weight: 700; }
+.informazioni-nome span { font-size: 14px; font-weight: 400; color: var(--testo-tenue); }
+.informazioni-motto { font-style: italic; }
+.informazioni-terzi { font-size: 13px; color: var(--testo-tenue); }
+
 /* ==================== SCHERMI PIÙ PICCOLI ==================== */
 @media (max-width: 1200px) {
     .btn-top .testo { display: none; }

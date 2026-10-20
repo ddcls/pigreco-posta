@@ -21,6 +21,7 @@
 
 require_once 'check_auth.php';
 require_once __DIR__ . '/lib/tema.php';
+require_once __DIR__ . '/lib/info.php';
 // Colore dell'interfaccia scelto dall'utente (o quello predefinito): impostato
 // già qui sull'elemento <html>, così la pagina non "lampeggia" col colore base
 $temaPagina = temaUtente((int)($_SESSION['user_id'] ?? 0));
@@ -36,7 +37,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="temi.css?v=1">
-    <link rel="stylesheet" href="style.css?v=2.2">
+    <link rel="stylesheet" href="style.css?v=2.3">
     <link rel="stylesheet" href="archivio.css?v=2.1">
     <link rel="stylesheet" href="contatti.css?v=2">
     <link rel="stylesheet" href="filtri.css?v=1">
@@ -150,6 +151,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     <?php endif; ?>
                     <div class="settings-item" onclick="FiltriEmail.apri()">
                         <i class="fas fa-filter"></i> Filtri
+                    </div>
+                    <div class="settings-item" onclick="document.getElementById('settingsMenu').classList.remove('show'); document.getElementById('informazioniModal').style.display = 'flex';">
+                        <i class="fas fa-info-circle"></i> Informazioni
                     </div>
                     <div class="settings-item settings-item-esci" id="logoutBtn">
                         <i class="fas fa-sign-out-alt"></i> Esci
@@ -904,6 +908,35 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 <i class="fas fa-check"></i> Salva
             </button>
             <button type="button" class="btn-cancel" onclick="chiudiAspetto()">Annulla</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== FINESTRA INFORMAZIONI (lib/info.php) ==================== -->
+<div id="informazioniModal" class="compose-modal-overlay" style="display:none;" onclick="if (event.target === this) this.style.display = 'none'">
+    <div class="compose-modal informazioni-modal" role="dialog" aria-labelledby="informazioniTitolo">
+        <div class="compose-modal-header">
+            <h3 id="informazioniTitolo"><i class="fas fa-info-circle"></i> Informazioni su PiGreco Posta</h3>
+            <button class="btn-close-compose" onclick="document.getElementById('informazioniModal').style.display = 'none'" title="Chiudi">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="informazioni-corpo">
+            <p class="informazioni-nome">PiGreco Posta <span>versione <?php echo htmlspecialchars(PIGRECO_POSTA_VERSIONE); ?></span></p>
+            <p class="informazioni-motto">Tutte le tue caselle, un solo accesso.</p>
+            <p>© 2026 <?php echo htmlspecialchars(PIGRECO_POSTA_AUTORE); ?></p>
+            <p>Software libero: puoi usarlo, studiarlo, modificarlo e condividerlo secondo la
+               <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU Affero General Public License</a>,
+               versione 3 o (a tua scelta) successiva. È distribuito <strong>senza alcuna garanzia</strong>.</p>
+            <p><i class="fas fa-code"></i> Codice sorgente:
+               <a href="<?php echo htmlspecialchars(PIGRECO_POSTA_SORGENTE); ?>" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars(preg_replace('#^https://#', '', PIGRECO_POSTA_SORGENTE)); ?></a></p>
+            <p><i class="fas fa-comment-dots"></i> Segnalazioni e suggerimenti:
+               <a href="<?php echo htmlspecialchars(PIGRECO_POSTA_SORGENTE); ?>/issues" target="_blank" rel="noopener noreferrer">pagina delle segnalazioni (issues)</a></p>
+            <p class="informazioni-terzi">Usa anche componenti di terzi, ognuno con la sua licenza: PHPMailer, DOMPurify, Font Awesome,
+               PHP, Apache, MySQL, Dovecot, isync (mbsync) e Python. L'elenco completo è nel file THIRD-PARTY.md del codice sorgente.</p>
+        </div>
+        <div class="compose-modal-actions">
+            <button type="button" class="btn-cancel" onclick="document.getElementById('informazioniModal').style.display = 'none'">Chiudi</button>
         </div>
     </div>
 </div>
