@@ -78,7 +78,7 @@ Caselle e database sono in `/srv/posta`: `sudo ./scripts/backup.sh <cartella>` n
 
 ## PiGreco Archivio
 
-PiGreco Posta è fatta dagli autori di **PiGreco Archivio**, l'archivio documentale per uffici e studi legali (ufficio 3D, faldoni, OCR, modulo legale), di prossima uscita. Insieme alla webmail aggiunge il pulsante **Archivia** (l'email e i suoi allegati in archivio con un clic), la rubrica in comune e l'invio dei documenti archiviati dalla tua casella. Stiamo preparando il collegamento di PiGreco Archivio a una PiGreco Posta già installata, senza reinstallare e senza perdere dati.
+PiGreco Posta è fatta dagli autori di **PiGreco Archivio**, l'archivio documentale per uffici e studi legali (ufficio 3D, faldoni, OCR, modulo legale), di prossima uscita. Insieme alla webmail aggiunge il pulsante **Archivia** (l'email e i suoi allegati in archivio con un clic), la rubrica in comune e l'invio dei documenti archiviati dalla tua casella. Installati sullo stesso server, i due programmi si collegano da soli, in qualsiasi ordine: non si reinstalla niente e caselle, email, utenti e filtri restano come sono. La webmail aperta dall'archivio (`http://<server>:8081/webmail/`) mostra questi pulsanti; sulla sua porta (8080) resta la webmail da sola, e l'installatore dell'archivio propone di chiudere quella porta alla rete.
 
 ## Licenza
 

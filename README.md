@@ -80,7 +80,7 @@ Mailboxes and database live in `/srv/posta`: `sudo ./scripts/backup.sh <folder>`
 
 ## PiGreco Archivio
 
-PiGreco Posta is made by the authors of **PiGreco Archivio**, a document archive for offices and law firms (3D office, binders, OCR, legal module), coming soon. Together with the webmail it adds the **Archivia** button (archive an email and its attachments with one click), a shared address book, and sending archived documents from your own mailbox. Connecting PiGreco Archivio to a PiGreco Posta that is already installed, with no reinstall and no data loss, is being prepared.
+PiGreco Posta is made by the authors of **PiGreco Archivio**, a document archive for offices and law firms (3D office, binders, OCR, legal module), coming soon. Together with the webmail it adds the **Archivia** button (archive an email and its attachments with one click), a shared address book, and sending archived documents from your own mailbox. Installed on the same server, the two programs connect by themselves, in any order: nothing to reinstall, and mailboxes, emails, users and filters stay as they are. The webmail opened from the archive (`http://<server>:8081/webmail/`) shows these buttons; on its own port (8080) it stays the standalone webmail, and the archive installer offers to close that port to the network.
 
 ## License
 
