@@ -30,6 +30,10 @@ insieme a questo programma (file LICENSE). In caso contrario, vedi
 - Niente intestazione nei componenti di terzi (`webmail/phpmailer/`, `webmail/fontawesome/`, `webmail/vendor/`, vedi `THIRD-PARTY.md`), né in json/md/file di esempio.
 - L'anno resta quello della prima pubblicazione (2026).
 
+## Collegamento con PiGreco Archivio
+
+Archivio e Posta sono due programmi separati, ognuno funziona da solo. Installati sullo stesso server si parlano sulla rete Docker `pigreco`: la dichiarano **tutti e due** con `name: pigreco` e la chiave `pigreco` (non `external`, mai creata a mano con `docker network create`, che compose poi rifiuta), così funziona in qualsiasi ordine di installazione. L'Archivio pubblica la webmail su `:8081/webmail/` con un proxy verso l'alias fisso **`pigreco-webmail`** e aggiunge a ogni richiesta `X-PiGreco-Archivio: /`: solo le pagine arrivate da lì accendono Archivio/Archivia/Contatti (`$archivioUrl` in `webmail/index.php`, unico punto dove si decide; si accetta solo `/`). `ARCHIVIO_URL` nel `.env` resta per forzarlo sempre. La porta della webmail si chiude alla rete con `WEBMAIL_ASCOLTO=127.0.0.1` (lo propone l'installatore dell'Archivio). Piano completo nel repo dell'Archivio, `servizio/PIANO-ARCHIVIO-POSTA.md`.
+
 ## Versione e informazioni
 
 La versione è in due punti da cambiare insieme: `webmail/lib/info.php` (`PIGRECO_POSTA_VERSIONE`, con autore e indirizzo del codice sorgente) e `posta/script/gestione.py` (`VERSIONE`, `SORGENTE`). Si vede nella finestra **Informazioni** della webmail (menu utente, `#informazioniModal` in `index.php`), in fondo alla pagina di login e alla pagina Gestione caselle: copyright, licenza, nessuna garanzia e link al sorgente sono richiesti dalla AGPL (§5 d, §13), non toglierli. Ogni versione pubblicata ha un tag `vX.Y` e una release su GitHub.

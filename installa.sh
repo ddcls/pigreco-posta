@@ -162,7 +162,11 @@ ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
 ip="${ip:-<ip-server>}"
 echo
 echo "PiGreco Posta è attiva:"
-echo "  Webmail:          http://$ip:$(valore WEBMAIL_PORT)/webmail/"
+if [[ "$(valore WEBMAIL_ASCOLTO)" == 127.* ]]; then
+    echo "  Webmail:          dall'Archivio, http://$ip:8081/webmail/ (porta $(valore WEBMAIL_PORT) chiusa alla rete)"
+else
+    echo "  Webmail:          http://$ip:$(valore WEBMAIL_PORT)/webmail/"
+fi
 echo "  Gestione caselle: http://$ip:$(valore POSTA_GESTIONE_PORT)/"
 echo "Primi passi: aggiungi le caselle da \"Gestione caselle\", poi entra nella"
 echo "webmail come admin e crea gli account (vedi manuale/manuale.md)."

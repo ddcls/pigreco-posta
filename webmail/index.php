@@ -25,7 +25,17 @@ require_once __DIR__ . '/lib/info.php';
 // Colore dell'interfaccia scelto dall'utente (o quello predefinito): impostato
 // già qui sull'elemento <html>, così la pagina non "lampeggia" col colore base
 $temaPagina = temaUtente((int)($_SESSION['user_id'] ?? 0));
-$archivioCollegato = env('ARCHIVIO_URL', '') !== '';
+// PiGreco Archivio collegato: ARCHIVIO_URL nel .env, oppure la pagina arriva dal
+// proxy dell'Archivio (http://<server>:8081/webmail/), che aggiunge a ogni
+// richiesta "X-PiGreco-Archivio: /". Così la stessa webmail sulla sua porta
+// (8080) resta "da sola" e collegare l'Archivio non richiede di cambiare niente
+// qui. Si accetta solo "/" (Archivio sulla stessa origine): un valore falsato
+// a mano mostrerebbe solo pulsanti che puntano a pagine che non ci sono.
+$archivioUrl = env('ARCHIVIO_URL', '');
+if ($archivioUrl === '' && ($_SERVER['HTTP_X_PIGRECO_ARCHIVIO'] ?? '') === '/') {
+    $archivioUrl = '/';
+}
+$archivioCollegato = $archivioUrl !== '';
 $nomeUtente = (string)($_SESSION['username'] ?? '');
 ?>
 <!DOCTYPE html>
@@ -53,7 +63,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
         let is_admin = <?php echo isAdmin() ? 'true' : 'false'; ?>;
         // PiGreco Archivio collegato (container docker "webmail"): vuoto se la
         // webmail è installata da sola. Vedi archivio.js.
-        const ARCHIVIO_URL = <?php echo json_encode(env('ARCHIVIO_URL', '')); ?>;
+        const ARCHIVIO_URL = <?php echo json_encode($archivioUrl); ?>;
         // Colori disponibili nella finestra "Aspetto" (tema.js)
         const TEMI_WEBMAIL = <?php echo json_encode(temiDisponibili(), JSON_UNESCAPED_UNICODE); ?>;
         // Nomi delle cartelle mostrati nell'interfaccia
@@ -924,6 +934,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
         <div class="informazioni-corpo">
             <p class="informazioni-nome">PiGreco Posta <span>versione <?php echo htmlspecialchars(PIGRECO_POSTA_VERSIONE); ?></span></p>
             <p class="informazioni-motto">Tutte le tue caselle, un solo accesso.</p>
+            <?php if ($archivioCollegato): ?>
+            <p><i class="fas fa-archive"></i> Collegata a <strong>PiGreco Archivio</strong>.</p>
+            <?php endif; ?>
             <p>© 2026 <?php echo htmlspecialchars(PIGRECO_POSTA_AUTORE); ?></p>
             <p>Software libero: puoi usarlo, studiarlo, modificarlo e condividerlo secondo la
                <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU Affero General Public License</a>,
