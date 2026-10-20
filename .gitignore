@@ -14,3 +14,7 @@ Thumbs.db
 *.swp
 __pycache__/
 *.pyc
+
+# Installazione di prova messa da parte sul PC di sviluppo
+.env.prova
+dati-prova/
