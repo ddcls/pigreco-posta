@@ -21,11 +21,14 @@
 Gestione caselle copiate in locale: piccola pagina web (servizio "gestione")
 per aggiungere, modificare, sospendere e rimuovere le caselle copiate in
 locale, provare l'accesso al gestore e vedere lo stato della sincronizzazione.
+Pagina "Copie di backup" (/copie): dischi USB, copie e impostazioni; il
+lavoro lo fa il servizio posta-backup (backup.py), qui si mettono richieste.
 
 Login: un solo amministratore, impostato da terminale con
     ./scripts/password-gestione.sh [utente]   (dalla cartella di PiGreco Posta)
 """
 
+import datetime
 import html
 import json
 import os
@@ -38,6 +41,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import copie  # noqa: E402
 import postaconf as pc  # noqa: E402
 
 # Versione e codice sorgente (la stessa versione è in webmail/lib/info.php):
@@ -69,6 +73,22 @@ def dimensione(byte):
         if byte < 1024 or unita == 'TB':
             return f'{byte:.0f} {unita}' if unita == 'byte' else f'{byte:.1f} {unita}'.replace('.', ',')
         byte /= 1024
+
+
+GIORNI = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
+GIORNI_BREVI = ['', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom']
+
+
+def fa(ts):
+    """oggi / ieri / N giorni fa, per giorni di calendario."""
+    if not ts:
+        return ''
+    giorni = (datetime.date.today() - datetime.date.fromtimestamp(ts)).days
+    return 'oggi' if giorni <= 0 else 'ieri' if giorni == 1 else f'{giorni} giorni fa'
+
+
+def csrf_campo(s):
+    return f'<input type="hidden" name="csrf" value="{e(s["csrf"])}">'
 
 
 def password_casuale():
@@ -119,6 +139,20 @@ dialog h2 { margin-top:0; font-size:18px; }
 dialog ul { padding-left:20px; margin:6px 0 10px; }
 footer { max-width:1000px; margin:0 auto; padding:4px 16px 20px; text-align:center; color:var(--tenue); font-size:12px; }
 footer a { color:inherit; }
+nav.schede { display:flex; gap:4px; flex:2; }
+nav.schede a { padding:4px 10px; border-radius:6px; text-decoration:none; }
+nav.schede a.attiva { background:rgba(255,255,255,.22); }
+.dischi { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; }
+.disco { border:1px solid var(--bordo); border-radius:8px; padding:12px 14px; }
+.disco h3 { margin:0 0 6px; font-size:16px; }
+.disco p { margin:3px 0; font-size:14px; }
+.barra { height:8px; border-radius:4px; background:var(--bordo); overflow:hidden; margin-top:8px; }
+.barra > div { height:100%; background:var(--ok); }
+.giorni label { display:inline-block; font-weight:normal; margin:4px 12px 4px 0; }
+.numeri { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0 12px; }
+.attenzione { border:2px solid var(--errore); border-radius:8px; padding:12px; }
+.scorre table { min-width:640px; }
+@media (max-width:640px) { header { flex-wrap:wrap; } header h1 { flex-basis:100%; } }
 """
 
 
@@ -167,12 +201,15 @@ class Gestione(BaseHTTPRequestHandler):
             self.send_header(k, v)
         self.end_headers()
 
-    def pagina(self, titolo, contenuto, s=None, codice=200):
+    def pagina(self, titolo, contenuto, s=None, codice=200, scheda='caselle'):
         uscita = '<a href="/esci">Esci</a>' if s else ''
+        attiva = ' class="attiva"'
+        schede = ''.join(f'<a href="{u}"{attiva if scheda == k else ""}>{t}</a>'
+                         for k, u, t in (('caselle', '/', 'Caselle'), ('copie', '/copie', '💾 Copie di backup'))) if s else ''
         self.invia(codice, f"""<!doctype html><html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(titolo)} – PiGreco Posta</title><style>{STILE}</style></head>
-<body><header><h1>PiGreco Posta · Gestione caselle</h1>{uscita}</header>
+<body><header><h1>PiGreco Posta · Gestione caselle</h1><nav class="schede">{schede}</nav>{uscita}</header>
 <main>{contenuto}</main>
 <footer>PiGreco Posta {VERSIONE} · © 2026 Criscione Enzo · software libero
 <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">AGPL-3.0</a>, senza garanzia ·
@@ -203,6 +240,11 @@ class Gestione(BaseHTTPRequestHandler):
         if url.path == '/casella':
             a = next((x for x in pc.leggi_account() if x['indirizzo'] == q.get('indirizzo', '').lower()), None)
             return self.pagina_casella(s, a or {}, nuova=a is None)
+        if url.path == '/copie':
+            tipo = q.get('tipo', 'ok') if q.get('tipo') in ('ok', 'errore', 'avviso') else 'ok'
+            return self.pagina_copie(s, e(q.get('msg', '')), tipo)
+        if url.path == '/copie/prepara':
+            return self.pagina_prepara(s, q.get('dispositivo', ''))
         self.pagina('Non trovata', '<p>Pagina non trovata. <a href="/">Torna all\'elenco</a></p>', s, 404)
 
     def do_POST(self):
@@ -217,7 +259,10 @@ class Gestione(BaseHTTPRequestHandler):
             return self.pagina('Errore', '<p class="errore">Richiesta non valida: ricaricare la pagina.</p>', s, 400)
         azioni = {'/casella/salva': self.salva, '/casella/prova': self.prova,
                   '/casella/sospendi': self.sospendi, '/casella/rimuovi': self.rimuovi,
-                  '/sincronizza': self.sincronizza}
+                  '/sincronizza': self.sincronizza,
+                  '/copie/copia': self.copie_copia, '/copie/verifica': self.copie_verifica,
+                  '/copie/prepara': self.copie_prepara, '/copie/usa': self.copie_usa,
+                  '/copie/dimentica': self.copie_dimentica, '/copie/impostazioni': self.copie_impostazioni}
         if url.path in azioni:
             return azioni[url.path](s, dati)
         self.pagina('Non trovata', '<p>Azione sconosciuta.</p>', s, 404)
@@ -644,6 +689,271 @@ dopo la prossima sincronizzazione. Le altre restano sul gestore. <span class="te
     def sincronizza(self, s, dati):
         pc.richiedi_sincronizzazione()
         self.vai('/?' + urlencode({'msg': 'Sincronizzazione richiesta: parte entro pochi secondi.'}))
+
+    # ---------- copie di backup ----------
+
+    def collegati(self, st):
+        """UUID delle partizioni dei dischi USB collegati (visti dal servizio)."""
+        if not copie.servizio_attivo(st):
+            return set()
+        return {p['uuid'] for d in st.get('visti') or [] for p in d['partizioni'] if p['uuid']}
+
+    def pagina_copie(self, s, msg='', tipo='ok'):
+        """msg è HTML già sicuro."""
+        st = copie.stato()
+        attivo = copie.servizio_attivo(st)
+        registrati = copie.dischi_registrati()
+        collegati = self.collegati(st)
+        storia = copie.lavori()
+        lavoro = st.get('lavoro')
+        attesa = copie.richieste_in_attesa()
+        occupato = bool(lavoro or attesa)
+        imp = copie.impostazioni()
+        csrf = f'<input type="hidden" name="csrf" value="{e(s["csrf"])}">'
+
+        # --- stato ---
+        classe, testo = 'ok', ''
+        if not attivo:
+            classe = 'errore'
+            testo = ('<p><b>⚠️ Il servizio delle copie non risponde.</b></p><p>Dalla cartella di PiGreco Posta: '
+                     '<code>docker compose up -d posta-backup</code>.'
+                     + (f' Ultimo segnale: {quando(st.get("visto"))}.' if st.get('visto') else '') + '</p>')
+        elif lavoro or attesa:
+            classe = 'avviso'
+            l = lavoro or attesa[0]
+            disco = f' sul disco <b>{e(l.get("disco"))}</b>' if l.get('disco') else ''
+            cosa = ('In attesa del servizio delle copie (al massimo mezzo minuto)…' if not lavoro
+                    else f'💾 Copia in corso{disco}: <b>non staccare il disco</b>.' if l['tipo'] == 'copia'
+                    else f'🔍 Verifica in corso{disco}: <b>non staccare il disco</b>.' if l['tipo'] == 'verifica'
+                    else '🧹 Preparazione del disco in corso: <b>non staccarlo</b>.' if l['tipo'] == 'prepara_disco'
+                    else 'Lavoro in corso…')
+            perc = l.get('avanzamento')
+            testo = f'<p>{cosa}{f" {perc}%" if perc is not None else ""}</p>'
+            if perc is not None:
+                testo += f'<div class="barra"><div style="width:{int(perc)}%"></div></div>'
+        else:
+            ultima = next((x for x in storia if x['tipo'] == 'copia' and x['stato'] == 'riuscito'), None)
+            if ultima:
+                testo = (f'<p>✅ Ultima copia riuscita: <b>{quando(ultima.get("fine"))}</b> ({fa(ultima.get("fine"))})'
+                         f' sul disco <b>{e(ultima.get("disco", "?"))}</b>.</p>')
+            else:
+                classe = 'avviso'
+                testo = '<p>Non è ancora stata fatta nessuna copia della posta.</p>'
+            finito = next((x for x in storia if x['stato'] in ('riuscito', 'fallito')), None)
+            if finito and finito['stato'] == 'fallito':
+                classe = 'errore'
+                testo += (f'<p>❌ L\'ultimo lavoro non è riuscito ({e(copie.NOMI_LAVORO.get(finito["tipo"], ""))}, '
+                          f'{quando(finito.get("fine"))}): {e(finito.get("messaggio"))}</p>')
+            prossima = copie.turno_successivo(imp, datetime.datetime.now())
+            if prossima and registrati:
+                testo += (f'<p>🕘 Prossima copia automatica: {GIORNI[prossima.isoweekday()]} '
+                          f'{prossima.strftime("%d/%m/%Y alle %H:%M")}'
+                          + ('' if collegati & {d['uuid'] for d in registrati} else ' (se c\'è un disco di backup collegato)') + '.</p>')
+            elif registrati:
+                testo += '<p>🕘 Copie automatiche spente: scegli i giorni qui sotto, in "Quando".</p>'
+        ci_sono = bool(collegati & {d['uuid'] for d in registrati})
+        puo = attivo and not occupato and ci_sono
+        perche = '' if ci_sono else ('Collega un disco di backup' if registrati else 'Prepara prima un disco di backup')
+
+        # --- dischi di backup ---
+        schede = ''
+        for d in registrati:
+            collegato = d['uuid'] in collegati
+            elenco = ''.join(f'<li>{quando(c["data"])}</li>' for c in (d.get('copie') or [])[:30])
+            verifica = ('non ancora fatta' if not d.get('ultima_verifica') else
+                        f'{"✅" if d.get("verifica_ok") else "❌"} {quando(d["ultima_verifica"])}')
+            azioni = ''
+            if collegato:
+                azioni += (f'<form class="in-linea" method="post" action="/copie/copia">{csrf}'
+                           f'<input type="hidden" name="uuid" value="{e(d["uuid"])}">'
+                           f'<button type="submit"{"" if puo else " disabled"}>💾 Copia su questo disco</button></form>')
+                if d.get('copie'):
+                    azioni += (f'<form class="in-linea" method="post" action="/copie/verifica">{csrf}'
+                               f'<input type="hidden" name="uuid" value="{e(d["uuid"])}">'
+                               f'<button class="secondario" type="submit"{"" if puo else " disabled"}>🔍 Verifica</button></form>')
+            azioni += (f'<form class="in-linea" method="post" action="/copie/dimentica" onsubmit="return confirm(\'Non usare più '
+                       f'il disco {e(d["nome"])} per le copie della posta? Le copie già fatte restano sul disco.\')">{csrf}'
+                       f'<input type="hidden" name="uuid" value="{e(d["uuid"])}">'
+                       f'<button class="secondario" type="submit"{" disabled" if occupato or not attivo else ""}>Non usarlo più</button></form>')
+            schede += f"""<div class="disco"><h3>💽 {e(d['nome'])} <span class="{'ok' if collegato else 'tenue'}" style="font-size:12px;font-weight:normal">
+{'● collegato' if collegato else '○ non collegato'}</span></h3>
+<p>{e(d.get('modello') or 'Disco USB')} · {copie.byte(d.get('dimensione'))}</p>
+<p>Ultima copia: <b>{f"{quando(d['ultima_copia'])} ({fa(d['ultima_copia'])})" if d.get('ultima_copia') else 'nessuna'}</b></p>
+<p>Spazio libero: {copie.byte(d.get('spazio_libero'))} · Copie sul disco: {len(d.get('copie') or [])}</p>
+<p>Verifica: {verifica}</p>{f'<p class="errore">{e(d.get("verifica_messaggio"))}</p>' if d.get('verifica_ok') is False else ''}
+{f'<details><summary>Elenco delle copie</summary><ul>{elenco}</ul></details>' if elenco else ''}
+<div class="azioni">{azioni}</div></div>"""
+
+        # --- dischi USB collegati, non ancora della posta ---
+        altri = ''
+        for v in st.get('visti') or [] if attivo else []:
+            classe_disco = copie.classifica(v, registrati)
+            if classe_disco['stato'] == 'registrato':
+                continue
+            parti = ''.join(f'<li>{e(p["etichetta"] or p["nome"])} · {e(p["fs"] or "senza filesystem")} · {copie.byte(p["dimensione"])}</li>'
+                            for p in v['partizioni']) or '<li>Il disco è vuoto.</li>'
+            identita = ''.join(f'<input type="hidden" name="{k}" value="{e(v[k])}">' for k in ('dispositivo', 'seriale', 'dimensione'))
+            if classe_disco['stato'] == 'pronto':
+                azione = (f'<p>Già preparato come disco di backup <b>{e(classe_disco["nome"])}</b> (anche PiGreco Archivio prepara '
+                          'i dischi così): le copie della posta vanno nella loro cartella, accanto a quelle dell\'archivio. '
+                          'Non si formatta.</p>'
+                          f'<form method="post" action="/copie/usa">{csrf}{identita}'
+                          f'<button type="submit"{" disabled" if occupato or not attivo else ""}>✅ Usa questo disco</button></form>')
+            elif classe_disco['stato'] == 'da_preparare':
+                azione = (f'<a class="pulsante secondario" href="/copie/prepara?{urlencode({"dispositivo": v["dispositivo"]})}">'
+                          '🧹 Prepara questo disco…</a>')
+            else:
+                azione = f'<p>Non si può usare: {e(classe_disco.get("motivo"))}.</p>'
+            altri += f"""<div class="disco"><h3>🔌 {e(v.get('modello') or 'Disco USB')}</h3>
+<p>{copie.byte(v['dimensione'])}{f" · seriale {e(v['seriale'])}" if v.get('seriale') else ''}</p>
+<p>Contenuto:</p><ul>{parti}</ul><div class="azioni">{azione}</div></div>"""
+
+        # --- ultimi lavori ---
+        esiti = {'riuscito': ('ok', 'Riuscito'), 'fallito': ('errore', 'Fallito')}
+        righe = ''.join(f"""<tr><td>{quando(x.get('inizio') or x.get('richiesta_il'))}</td>
+<td>{e(copie.NOMI_LAVORO.get(x['tipo'], x['tipo']))}</td><td>{e(x.get('disco') or '—')}</td>
+<td class="{esiti.get(x['stato'], ('', ''))[0]}">{esiti.get(x['stato'], ('', x['stato']))[1]}</td>
+<td>{e(x.get('messaggio'))}</td><td>{'automatico' if x.get('origine') == 'automatica' else 'a mano'}</td></tr>"""
+                        for x in storia[:20]) or '<tr><td colspan="6" class="tenue">Nessun lavoro</td></tr>'
+
+        # --- impostazioni ---
+        giorni = ''.join(f'<label><input type="checkbox" name="giorno_{g}" value="1"{" checked" if g in imp["giorni"] else ""}> {GIORNI_BREVI[g]}</label>'
+                         for g in range(1, 8))
+
+        def numero(chiave, testo):
+            _, minimo, massimo, _ = copie.NUMERI[chiave]
+            return (f'<div><label for="{chiave}">{testo}</label><input type="number" id="{chiave}" name="{chiave}" '
+                    f'value="{imp[chiave]}" min="{minimo}" max="{massimo}" step="1"></div>')
+
+        avviso = f'<div class="messaggio {e(tipo)}">{msg}</div>' if msg else ''
+        aggiorna = '<meta http-equiv="refresh" content="5">' if occupato and attivo else ''
+        self.pagina('Copie di backup', f"""{aggiorna}{avviso}<div class="pannello">
+<h2>💾 Copie di backup della posta</h2>
+<p class="tenue">Le copie (caselle, database della webmail e chiave delle password) vanno su <b>dischi USB</b>, cifrate:
+senza la password delle copie non si aprono. Gli stessi dischi possono tenere anche le copie di PiGreco Archivio,
+ognuno nella sua cartella. Consiglio: due dischi a rotazione, uno collegato al server e l'altro a casa.
+Il disco si può staccare in qualunque momento, tranne durante una copia.</p>
+<div class="messaggio {classe}">{testo}</div>
+<div class="azioni"><form class="in-linea" method="post" action="/copie/copia">{csrf}
+<button type="submit"{"" if puo else " disabled"}>💾 Fai la copia adesso</button></form>
+<span class="tenue">{e(perche)}</span> <a class="tenue" href="/copie">⟳ Aggiorna</a></div></div>
+<div class="pannello"><h2>Dischi di backup</h2>
+{f'<div class="dischi">{schede}</div>' if schede else '<p class="tenue">Nessun disco di backup. Collega un disco USB: compare qui sotto.</p>'}</div>
+<div class="pannello"><h2>Dischi USB collegati</h2>
+{f'<div class="dischi">{altri}</div>' if altri else '<p class="tenue">Nessun altro disco USB collegato.</p>'}</div>
+<div class="pannello"><h2>Ultimi lavori</h2><div class="scorre"><table>
+<tr><th>Quando</th><th>Lavoro</th><th>Disco</th><th>Esito</th><th>Dettagli</th><th>Da</th></tr>{righe}</table></div></div>
+<div class="pannello"><h2>Impostazioni</h2><form method="post" action="/copie/impostazioni">{csrf}
+<h3>Quando</h3><div class="giorni">{giorni}</div>
+<div style="max-width:160px"><label for="ora">Ora della copia</label><input type="text" id="ora" name="ora" value="{e(imp['ora'])}" pattern="[0-2][0-9]:[0-5][0-9]"></div>
+<div class="tenue">Di serie alle 23:00, un'ora dopo PiGreco Archivio. Se a quell'ora il server è spento o il disco
+è staccato, la copia parte appena possibile.</div>
+<label style="font-weight:normal"><input type="checkbox" name="al_collegamento" value="1"{" checked" if imp['al_collegamento'] else ""}>
+Copia appena colleghi un disco di backup, se la sua ultima copia ha più di un giorno</label>
+<h3>Quante copie tenere su ogni disco</h3><div class="numeri">
+{numero('tieni_giorni', 'Giornaliere')}{numero('tieni_settimane', 'Settimanali')}{numero('tieni_mesi', 'Mensili')}</div>
+<h3>Controlli</h3><div class="numeri">{numero('verifica_giorni', 'Verifica ogni disco ogni … giorni (0 = mai)')}</div>
+<div class="azioni"><button type="submit">Salva</button></div></form></div>""", s, scheda='copie')
+
+    def disco_visto(self, dispositivo):
+        st = copie.stato()
+        if not copie.servizio_attivo(st):
+            return None
+        return next((v for v in st.get('visti') or [] if v['dispositivo'] == dispositivo), None)
+
+    def pagina_prepara(self, s, dispositivo, msg=''):
+        v = self.disco_visto(dispositivo)
+        if not v or copie.classifica(v, copie.dischi_registrati())['stato'] != 'da_preparare':
+            return self.vai('/copie?' + urlencode({'msg': 'Questo disco non si può preparare: aggiorna la pagina.', 'tipo': 'errore'}))
+        parti = ''.join(f'<li><b>{e(p["etichetta"] or p["nome"])}</b> · {e(p["fs"] or "senza filesystem")} · {copie.byte(p["dimensione"])}</li>'
+                        for p in v['partizioni']) or '<li>Il disco è vuoto.</li>'
+        identita = ''.join(f'<input type="hidden" name="{k}" value="{e(v[k])}">' for k in ('dispositivo', 'seriale', 'dimensione'))
+        avviso = f'<div class="messaggio errore">{msg}</div>' if msg else ''
+        self.pagina('Prepara il disco', f"""{avviso}<div class="pannello attenzione">
+<h2>🧹 Preparare il disco {e(v.get('modello') or 'USB')} ({copie.byte(v['dimensione'])})</h2>
+<p><b>⚠️ Tutto quello che c'è su questo disco verrà CANCELLATO.</b> Contenuto attuale:</p><ul>{parti}</ul>
+<p class="tenue">Se sul disco ci sono già copie di PiGreco Archivio o di PiGreco Posta, il servizio se ne accorge e non
+formatta. Un disco preparato da PiGreco Archivio non compare qui: si usa con "Usa questo disco".</p>
+<form method="post" action="/copie/prepara">{csrf_campo(s)}{identita}
+<label for="nome">Nome del disco (da 1 a 8 lettere o cifre, es. BK1)</label>
+<input type="text" id="nome" name="nome" maxlength="8" required pattern="[A-Za-z0-9]{{1,8}}" style="max-width:200px">
+<label for="conferma">Per confermare scrivi FORMATTA</label>
+<input type="text" id="conferma" name="conferma" required autocomplete="off" style="max-width:200px">
+<div class="azioni"><button class="pericolo" type="submit">🧹 Cancella e prepara il disco</button>
+<a href="/copie" class="tenue">Annulla</a></div></form></div>""", s, scheda='copie')
+
+    def esito_richiesta(self, fai, ok):
+        try:
+            fai()
+        except ValueError as ex:
+            return self.vai('/copie?' + urlencode({'msg': str(ex), 'tipo': 'errore'}))
+        self.vai('/copie?' + urlencode({'msg': ok}))
+
+    def disco_registrato(self, uuid):
+        return next((d for d in copie.dischi_registrati() if d['uuid'] == uuid), None)
+
+    def copie_copia(self, s, dati):
+        d = self.disco_registrato(dati.get('uuid', '')) if dati.get('uuid') else None
+        if dati.get('uuid') and not d:
+            return self.vai('/copie?' + urlencode({'msg': 'Disco non trovato.', 'tipo': 'errore'}))
+        parametri = {'uuid': d['uuid']} if d else {}
+        self.esito_richiesta(lambda: copie.richiedi('copia', **parametri),
+                             f'Copia avviata sul disco {d["nome"]}.' if d else 'Copia avviata.')
+
+    def copie_verifica(self, s, dati):
+        d = self.disco_registrato(dati.get('uuid', ''))
+        if not d:
+            return self.vai('/copie?' + urlencode({'msg': 'Disco non trovato.', 'tipo': 'errore'}))
+        self.esito_richiesta(lambda: copie.richiedi('verifica', uuid=d['uuid']), f'Verifica avviata sul disco {d["nome"]}.')
+
+    def copie_dimentica(self, s, dati):
+        d = self.disco_registrato(dati.get('uuid', ''))
+        if not d:
+            return self.vai('/copie?' + urlencode({'msg': 'Disco non trovato.', 'tipo': 'errore'}))
+        self.esito_richiesta(lambda: copie.richiedi('dimentica_disco', uuid=d['uuid']),
+                             f'Il disco {d["nome"]} non si userà più per le copie della posta.')
+
+    def identita_disco(self, dati):
+        """Il disco scelto, ancora collegato con lo stesso seriale e la stessa dimensione."""
+        v = self.disco_visto(dati.get('dispositivo', ''))
+        if not v or v['seriale'] != dati.get('seriale', '') or str(v['dimensione']) != dati.get('dimensione', ''):
+            raise ValueError('Il disco non è più collegato: aggiorna la pagina')
+        return v
+
+    def copie_usa(self, s, dati):
+        def fai():
+            v = self.identita_disco(dati)
+            classe = copie.classifica(v, copie.dischi_registrati())
+            if classe['stato'] != 'pronto':
+                raise ValueError('Questo disco non è preparato per le copie')
+            if any(d['nome'] == classe['nome'] for d in copie.dischi_registrati()):
+                raise ValueError(f"C'è già un disco che si chiama {classe['nome']}")
+            copie.richiedi('usa_disco', dispositivo=v['dispositivo'], seriale=v['seriale'], dimensione=v['dimensione'])
+        self.esito_richiesta(fai, 'Registrazione del disco avviata.')
+
+    def copie_prepara(self, s, dati):
+        nome = dati.get('nome', '').strip().upper()
+        if dati.get('conferma', '').strip() != 'FORMATTA':
+            return self.pagina_prepara(s, dati.get('dispositivo', ''), 'Per formattare scrivi FORMATTA.')
+        if not copie.NOME_DISCO.match(nome):
+            return self.pagina_prepara(s, dati.get('dispositivo', ''), 'Il nome del disco: da 1 a 8 lettere o cifre, senza spazi (es. BK1).')
+        if any(d['nome'] == nome for d in copie.dischi_registrati()):
+            return self.pagina_prepara(s, dati.get('dispositivo', ''), f"C'è già un disco che si chiama {e(nome)}.")
+
+        def fai():
+            v = self.identita_disco(dati)
+            if copie.classifica(v, copie.dischi_registrati())['stato'] != 'da_preparare':
+                raise ValueError('Questo disco non si può formattare da qui')
+            copie.richiedi('prepara_disco', dispositivo=v['dispositivo'], seriale=v['seriale'],
+                           dimensione=v['dimensione'], nome=nome)
+        self.esito_richiesta(fai, f'Preparazione del disco {nome} avviata: non staccarlo.')
+
+    def copie_impostazioni(self, s, dati):
+        try:
+            copie.salva_impostazioni(dati)
+        except ValueError as ex:
+            return self.pagina_copie(s, e(str(ex)), 'errore')
+        self.vai('/copie?' + urlencode({'msg': 'Impostazioni delle copie salvate.'}))
 
 
 if __name__ == '__main__':

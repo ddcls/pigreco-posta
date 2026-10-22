@@ -28,6 +28,8 @@
 #   posta               Dovecot: IMAP sulla copia locale delle caselle
 #   posta-sincronizza   mbsync: copia dal gestore email nuove e flag, non cancella mai
 #   posta-gestione      pagina "Gestione caselle", http://<server>:${POSTA_GESTIONE_PORT}
+#   posta-backup        copie di backup su dischi USB (restic), si gestiscono
+#                       dalla pagina "Gestione caselle" › Copie di backup
 #
 # Rete "pigreco" (nome fisso): webmail e posta vi sono collegate perché
 # PiGreco Archivio, installato più tardi sullo stesso server, possa
@@ -151,6 +153,42 @@ services:
     command: gestione
     ports:
       - "${POSTA_GESTIONE_PORT:-8083}:8080"
+
+  # Copie di backup su dischi USB (gli stessi di PiGreco Archivio, cartella
+  # pigreco-posta/): root, monta i dischi solo durante il lavoro
+  posta-backup:
+    <<: *posta
+    command: backup
+    # Nome fisso: restic riconosce i lock lasciati da una copia interrotta
+    # (PC spento) solo se sono della stessa macchina
+    hostname: pigreco-posta-backup
+    # mount/mkfs: SYS_ADMIN; AppArmor (Debian, Mint) nega mount ai container
+    # anche con SYS_ADMIN; dischi sd* (major 8: USB e SATA, non NVMe)
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    device_cgroup_rules:
+      - "b 8:* rmw"
+    volumes:
+      - ${POSTA_DIR:-/srv/posta}:/srv/posta
+      # La chiave che cifra le password delle caselle: va nelle copie
+      - ./.env:/opt/pigreco-posta/env/.env:ro
+      # Dischi collegati anche dopo l'avvio, con UUID ed etichette come li vede il PC
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+    environment:
+      - TZ=${TZ:-Europe/Rome}
+      # Password delle copie restic (diversa da quella di PiGreco Archivio)
+      - BACKUP_PASSWORD=${BACKUP_PASSWORD:-}
+      # Il dump di tutti i database vuole root
+      - DB_ROOT_PASS=${DB_ROOT_PASS:-}
+      # Percorsi sul server: i file di MySQL dentro POSTA_DIR non si copiano (c'è il dump)
+      - POSTA_DIR_HOST=${POSTA_DIR:-/srv/posta}
+      - WEBMAIL_DB_DIR_HOST=${WEBMAIL_DB_DIR:-/srv/posta/mysql}
+    depends_on:
+      db:
+        condition: service_healthy
 
 networks:
   pigreco:
