@@ -97,6 +97,14 @@ for coppia in "DB_ROOT_PASS:$(casuale 32)" "WEBMAIL_DB_PASS:$(casuale 32)" \
         generate=1
     fi
 done
+# Password delle copie di backup: un .env di prima della 1.3 non ha la riga
+if ! grep -qE "^BACKUP_PASSWORD=" .env; then
+    printf '\n# Password delle copie di backup (vedi .env.example)\nBACKUP_PASSWORD=\n' >> .env
+fi
+if grep -qE "^BACKUP_PASSWORD=$" .env; then
+    sed -i "s|^BACKUP_PASSWORD=$|BACKUP_PASSWORD=$(casuale 32)|" .env
+    generate=1
+fi
 if (( generate )); then
     echo "Password casuali scritte in .env (conservane una copia: contiene la"
     echo "chiave che cifra le password delle caselle)."

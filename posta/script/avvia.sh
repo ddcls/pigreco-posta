@@ -21,6 +21,7 @@
 #   avvia dovecot       genera utenti/cartelle/certificato e avvia Dovecot
 #   avvia sincronizza   mbsync per ogni casella ogni POSTA_INTERVALLO secondi
 #   avvia gestione      pagina web "Gestione caselle"
+#   avvia backup        copie di backup su dischi USB (root: monta i dischi)
 #   avvia una-volta     una sola sincronizzazione con i dettagli (es. la prima, a mano)
 set -eu
 
@@ -46,6 +47,9 @@ case "${1:-dovecot}" in
         ;;
     gestione)
         come_vmail python3 -u /usr/local/lib/posta/gestione.py
+        ;;
+    backup)
+        exec python3 -u /usr/local/lib/posta/backup.py
         ;;
     una-volta)
         setpriv --reuid=5000 --regid=5000 --clear-groups -- genera-config mbsync
