@@ -322,7 +322,33 @@ ufficio.
 cd /opt/pigreco-posta && docker compose ps
 ```
 
-**Backup**: un solo comando, anche con tutto acceso:
+**Backup**: su **dischi USB**, da **Gestione caselle › 💾 Copie di backup** (manuale, capitolo 12).
+Il disco nuovo si prepara da lì (viene **formattato**: va scritto FORMATTA); un disco già preparato
+da PiGreco Archivio si usa così com'è ("Usa questo disco"), con le copie della posta nella cartella
+`pigreco-posta/`. Le copie (caselle, database della webmail, `.env`) sono cifrate con
+`BACKUP_PASSWORD` di `.env` e partono da sole (di serie lun–ven alle 23:00). Imposta l'SMTP in
+**Gestione caselle › ⚙️ Impostazioni** per ricevere gli avvisi e stampa il **foglio di
+ripristino**. Il servizio è `posta-backup` (root, monta i dischi solo durante la copia).
+
+Se presso i gestori tieni solo gli ultimi giorni (capitolo 10 del manuale), **la copia sul server è
+l'unica**: le copie di backup diventano obbligatorie.
+
+**Ripristino dal disco di backup** (server nuovo, o disco dei dati rotto): installa PiGreco Posta
+come la prima volta (paragrafi 2–6), collega il disco e lancia
+
+```bash
+cd /opt/pigreco-posta && ./scripts/ripristina-backup.sh
+```
+
+Lo script ferma webmail e copia locale, trova il disco, chiede la password delle copie (dal foglio;
+se è la stessa di `.env` non la chiede), la copia da rimettere (Invio = la più recente) e la parola
+**RIPRISTINA**. Poi rimette le caselle in `/srv/posta`, ricarica il database della webmail (gli
+utenti e le password di MySQL restano quelli di questo server), scrive in `.env` la chiave delle
+caselle e la password delle copie del vecchio server (il `.env` di prima resta in
+`.env.prima-del-ripristino`, quello del vecchio server in `.env.dalla-copia`) e fa ripartire tutto.
+Il disco di backup si legge soltanto.
+
+**Copia a mano in un file** (anche con tutto acceso):
 
 ```bash
 cd /opt/pigreco-posta
@@ -334,10 +360,7 @@ Crea `pigreco-posta-AAAAMMGG-HHMM.tar.gz` con le caselle (`/srv/posta`), il data
 database lavora potrebbero non ripartire, il dump invece sì. Il file contiene la chiave di cifratura
 e le password: tienilo al sicuro.
 
-Fallo regolarmente, su un disco esterno o un NAS. Se presso i gestori tieni solo gli ultimi giorni
-(capitolo 10 del manuale), **la copia sul server è l'unica**: il backup diventa obbligatorio.
-
-**Ripristino** (su un server nuovo, dopo i paragrafi 2, 3 e 4):
+**Ripristino da un file di `backup.sh`** (su un server nuovo, dopo i paragrafi 2, 3 e 4):
 
 ```bash
 cd /opt/pigreco-posta

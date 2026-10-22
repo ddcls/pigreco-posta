@@ -15,6 +15,7 @@ gestore (Gmail, Libero, Aruba, PEC…) ──IMAP──▶ copia sul tuo disco �
 - **Liberare spazio presso il gestore, in sicurezza (facoltativo).** Per ogni casella puoi tenere sul gestore solo gli ultimi N giorni. Un'email viene cancellata dal gestore **solo se la sua copia locale è verificata**. Il valore predefinito è 0: non si cancella mai niente.
 - **Webmail.** Più caselle e più utenti. Vista a tre riquadri, che funziona anche sul telefono. Ricerca, cartelle, trascinamento delle email nelle cartelle, selezione multipla, bozze con salvataggio automatico, ⭐ importanti, **filtri** sul server, temi di colore. L'invio passa dall'SMTP di ogni gestore.
 - **Pagina "Gestione caselle"** per aggiungere le caselle, provare l'accesso al gestore, vedere lo stato della sincronizzazione e impostare la pulizia.
+- **Copie di backup su dischi USB**, automatiche e cifrate (restic), con avvisi per email, foglio di ripristino e ripristino completo con un comando. Gli stessi dischi possono tenere anche le copie di PiGreco Archivio.
 - **Tutto in Docker**: webmail (PHP 8.3 + Apache), MySQL 8, Dovecot, mbsync, pagina di gestione.
 
 ## Come si presenta
@@ -62,12 +63,13 @@ docker compose ps                         # stato dei servizi
 docker compose logs -f posta-sincronizza  # registro della sincronizzazione
 ./scripts/password-webmail.sh [utente]    # password di un utente della webmail
 ./scripts/password-gestione.sh [utente]   # accesso alla pagina di gestione
+./scripts/ripristina-backup.sh            # rimette tutta la posta da un disco di backup
 sudo ./scripts/backup.sh <cartella>       # backup di caselle, database e .env in un file
 ./scripts/confronta.sh [indirizzo]        # email per cartella: gestore e copia locale
 git pull && docker compose up -d --build  # aggiornamento
 ```
 
-Caselle e database sono in `/srv/posta`: `sudo ./scripts/backup.sh <cartella>` ne fa il backup in un solo file, insieme a `.env`. Tieni quel file al sicuro: in `.env` c'è la chiave che cifra le password salvate.
+Caselle e database sono in `/srv/posta`. Le copie di backup si fanno da sole su dischi USB (Gestione caselle › Copie di backup, manuale capitolo 12); `sudo ./scripts/backup.sh <cartella>` ne fa anche una a mano in un solo file, insieme a `.env`. Tieni copie e foglio di ripristino al sicuro: in `.env` c'è la chiave che cifra le password salvate.
 
 ## Sicurezza
 
