@@ -27,12 +27,22 @@ saltata: appena c'è un disco, una volta), copia sul disco appena collegato se
 la sua copia ha più di un giorno, verifica di un disco ogni verifica_giorni.
 
 Copia = due snapshot restic con lo stesso tag esecuzione-<id> nella cartella
-pigreco-posta/ del disco: il dump di tutti i database della webmail, poi le
-caselle (/srv/posta senza i file di MySQL) e il .env con la chiave che cifra
-le password delle caselle. Il disco si monta solo durante il lavoro.
+pigreco-posta/ del disco: il dump dei database della webmail (non quelli di
+sistema di MySQL: il mysqldump di MariaDB non li scrive in modo che MySQL 8
+li ricarichi, e gli utenti di MySQL sono quelli del server su cui si
+ripristina), poi le caselle (/srv/posta senza i file di MySQL) e il .env con
+la chiave che cifra le password delle caselle. Il disco si monta solo
+durante il lavoro.
 
-  python3 backup.py            ciclo del servizio
-  python3 backup.py --dischi   stampa i dischi USB visti, senza scrivere niente
+Dopo ogni giro manda all'amministratore gli avvisi nuovi (avvisi.py) con
+l'SMTP di Gestione caselle › Impostazioni: ogni tipo al massimo una volta al
+giorno, riprovando al massimo 3 volte se l'invio non riesce.
+
+  python3 backup.py               ciclo del servizio
+  python3 backup.py --dischi      stampa i dischi USB visti, senza scrivere niente
+  python3 backup.py --avvisi      stampa l'email di avviso che manderebbe, senza mandarla
+  python3 backup.py --ripristina  rimette tutta la posta da un disco di backup
+                                  (lo lancia scripts/ripristina-backup.sh)
 """
 
 import datetime
@@ -46,6 +56,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import avvisi  # noqa: E402
 import copie as cp  # noqa: E402
 import postaconf as pc  # noqa: E402
 
@@ -55,6 +66,10 @@ MONTAGGI = '/mnt/backup'
 HOST_RESTIC = 'pigreco-posta'
 INTERVALLO = 30
 LAVORI_TENUTI = 50
+MAX_TENTATIVI_EMAIL = 3
+DB_SISTEMA = ('mysql', 'information_schema', 'performance_schema', 'sys')
+# Client MariaDB: il certificato di MySQL è autofirmato, si resta nella rete di Docker
+MYSQL = ['--skip-ssl-verify-server-cert', '-h', 'db', '-P', '3306', '-u', 'root']
 
 
 class Errore(Exception):
@@ -257,6 +272,49 @@ class Servizio:
         if self.pianifica():
             while self.prossima_richiesta():
                 self.aggiorna_dischi_visti()
+        self.avvisi_per_email()
+
+    # ---------- avvisi per email ----------
+
+    def avvisi_per_email(self, prova=False):
+        """
+        Gli avvisi nuovi di oggi in una sola email (con gli altri per il quadro).
+        prova: restituisce il testo senza mandarlo né segnarlo.
+        """
+        if not prova and (not cp.impostazioni()['avvisi_email'] or not avvisi.smtp_configurato()):
+            return None
+        elenco = avvisi.avvisi(per_email=True)
+        oggi = time.strftime('%Y-%m-%d')
+        inviati = {k: v for k, v in cp.leggi(cp.AVVISI_INVIATI, {}).items() if k.split('|')[1] >= oggi}
+        nuovi = [a for a in elenco if prova or not (
+            inviati.get(f"{a['tipo']}|{oggi}", {}).get('esito') == 'inviato'
+            or inviati.get(f"{a['tipo']}|{oggi}", {}).get('tentativi', 0) >= MAX_TENTATIVI_EMAIL)]
+        if not nuovi:
+            return None
+        altri = [a for a in elenco if a not in nuovi]
+        oggetto = 'PiGreco Posta: ' + avvisi.OGGETTI.get(nuovi[0]['tipo'], 'avviso delle copie di backup') \
+            + (' (e altri avvisi)' if len(nuovi) > 1 else '')
+        corpo = '\n\n'.join(a['testo'] for a in nuovi) + '\n\n'
+        if altri:
+            corpo += 'Già segnalati oggi:\n' + '\n'.join('- ' + a['testo'] for a in altri) + '\n\n'
+        corpo += ('Dettagli in PiGreco Posta › Gestione caselle › Copie di backup.\n\n'
+                  'Ogni avviso arriva al massimo una volta al giorno. Si spegne in Copie di backup › Controlli e avvisi.\n')
+        if prova:
+            conf = avvisi.smtp()
+            return f"A: {', '.join(conf['destinatari']) or '(nessun destinatario impostato)'}\nOggetto: {oggetto}\n\n{corpo}"
+        try:
+            avvisi.invia(oggetto, corpo)
+            esito, errore = 'inviato', None
+        except RuntimeError as e:
+            esito, errore = 'errore', str(e)
+        for a in nuovi:
+            chiave = f"{a['tipo']}|{oggi}"
+            voce = inviati.setdefault(chiave, {'tentativi': 0})
+            voce.update(esito=esito, messaggio=errore, tentativi=voce['tentativi'] + 1, quando=time.time())
+        cp.scrivi(cp.AVVISI_INVIATI, inviati)
+        tipi = ', '.join(a['tipo'] for a in nuovi)
+        log('WARN' if errore else 'INFO', f'Avvisi per email ({tipi}): {errore or "inviati"}')
+        return None
 
     def prossima_richiesta(self):
         try:
@@ -488,6 +546,13 @@ class Servizio:
             raise Errore(f"Il disco {disco['nome']} ha errori che non si riparano da soli: {ultime_righe(errori + uscita)}")
         imp = cp.impostazioni()
         etichette = ['--host', HOST_RESTIC, '--tag', 'posta', '--tag', f"esecuzione-{lavoro['id']}"]
+        mysql_env = {'MYSQL_PWD': os.environ.get('DB_ROOT_PASS', '')}
+        codice, uscita, errori = comando(['mysql'] + MYSQL + ['-N', '-e', 'SHOW DATABASES'], mysql_env)
+        if codice != 0:
+            raise Errore('Il database della webmail non risponde: ' + ultime_righe(errori or uscita))
+        basi = [b for b in uscita.split() if b not in DB_SISTEMA]
+        if not basi:
+            raise Errore('Non trovo il database della webmail')
 
         def lavora(repo):
             if not os.path.isfile(os.path.join(repo, 'config')):
@@ -495,10 +560,8 @@ class Servizio:
             restic(repo, ['unlock'])   # solo i lock rimasti da una copia interrotta su questa macchina
             db = restic(repo, ['backup', '--json', '--tag', 'database'] + etichette + [
                 '--stdin-filename', 'webmail.sql', '--stdin-from-command', '--',
-                # Client MariaDB: il certificato di MySQL è autofirmato, si resta nella rete di Docker
-                'mysqldump', '--skip-ssl-verify-server-cert', '--single-transaction', '--routines', '--events',
-                '--all-databases', '-h', 'db', '-P', '3306', '-u', 'root',
-            ], {'MYSQL_PWD': os.environ.get('DB_ROOT_PASS', '')})
+                'mysqldump'] + MYSQL + ['--single-transaction', '--routines', '--events', '--add-drop-database',
+                '--databases'] + basi, mysql_env)
             self.avanzamento(lavoro, 5)
             percorsi = [DATI] + ([ENV] if os.path.isfile(ENV) else [])
             caselle = restic(repo, ['backup', '--json', '--tag', 'caselle'] + etichette + self.escludi_mysql() + percorsi,
@@ -629,16 +692,24 @@ class Servizio:
 
     # ---------- montaggio ----------
 
-    def con_disco(self, part, uuid, lavoro):
-        """Monta la partizione, esegue lavoro(cartella delle copie) e smonta sempre."""
+    def con_disco(self, part, uuid, lavoro, sola_lettura=False):
+        """
+        Monta la partizione, esegue lavoro(cartella delle copie) e smonta sempre.
+        In sola lettura per il ripristino (restic allora va con --no-lock).
+        """
         cartella = os.path.join(MONTAGGI, ''.join(c for c in uuid if c.isalnum() or c == '-'))
         os.makedirs(cartella, mode=0o700, exist_ok=True)
         if os.path.ismount(cartella):
             comando(['umount', cartella])
         richiedi(['mount', '-t', 'ext4', '-o', 'noatime', part, cartella], 'Non riesco a montare il disco')
         try:
+            # Sola lettura solo per questo punto di montaggio: "-o ro" il kernel
+            # lo rifiuta se il disco è già aperto altrove (desktop, PiGreco Archivio)
+            if sola_lettura:
+                richiedi(['mount', '-o', 'remount,bind,ro', cartella], 'Non riesco a montare il disco in sola lettura')
             repo = os.path.join(cartella, cp.CARTELLA_COPIE)
-            os.makedirs(repo, mode=0o700, exist_ok=True)
+            if not sola_lettura:
+                os.makedirs(repo, mode=0o700, exist_ok=True)
             return lavoro(repo)
         finally:
             comando(['sync'])
@@ -646,10 +717,220 @@ class Servizio:
                 comando(['umount', '-l', cartella])
 
 
+class Ripristino(Servizio):
+    """
+    Rimette tutta la posta da un disco di backup (PC nuovo o disco dei dati
+    rotto). Lo lancia scripts/ripristina-backup.sh in un container usa e getta
+    del servizio posta-backup, con webmail e copia locale ferme e il database
+    acceso, e la cartella /ripristino/esito per lo scambio con lo script.
+
+    Passi: disco PIGRECO-* collegato, password (prima quella di questo PC, poi
+    quella del foglio di ripristino), copia da rimettere, conferma, caselle in
+    /srv/posta (i file di MySQL restano quelli di adesso), database della
+    webmail (cancellati e ricaricati dal dump; utenti e password di MySQL
+    restano quelli di questo server), controllo finale. Il disco si legge
+    soltanto. Lo script poi rimette nel .env la chiave che cifra le password
+    delle caselle e la password delle copie del vecchio .env.
+    """
+
+    ESITO = '/ripristino/esito'
+
+    def __init__(self):
+        super().__init__()
+        self.password = ''
+
+    def scrivi(self, testo=''):
+        print(testo, flush=True)
+
+    def chiedi(self, domanda, predefinita='', nascosta=False):
+        print(domanda, end='', flush=True)
+        terminale = sys.stdin.isatty()
+        if nascosta and terminale:
+            subprocess.run(['stty', '-echo'])
+        try:
+            riga = sys.stdin.readline()
+        finally:
+            if nascosta and terminale:
+                subprocess.run(['stty', 'echo'])
+                print()
+        if not riga:
+            raise Errore('Ripristino annullato')
+        return riga.strip() or predefinita
+
+    def esegui_ripristino(self):
+        self.scrivi('\n=== Ripristino di PiGreco Posta da un disco di backup ===\n')
+        if not os.path.isdir(self.ESITO):
+            self.scrivi(f'Manca la cartella {self.ESITO}: lancia ./scripts/ripristina-backup.sh, non questo file.')
+            return 1
+        part, uuid, nome = self.scegli_disco()
+        copie = self.con_disco(part, uuid, lambda repo: self.apri(repo, nome), True)
+        if copie is None:
+            return 1
+        copia = self.scegli_copia(copie)
+        caselle = len(pc.leggi_account()) if os.path.isfile(pc.CONFIG) else 0
+        self.scrivi(f"\nStai per rimettere su questo server la copia del {self.data(copia['data'])} (disco {nome}).")
+        if caselle:
+            self.scrivi(f'ATTENZIONE: questo server ha già {caselle} caselle: le caselle, gli utenti e gli account della '
+                        'webmail verranno SOSTITUITI da quelli della copia.')
+        if self.chiedi('Per continuare scrivi RIPRISTINA: ').upper() != 'RIPRISTINA':
+            self.scrivi('Ripristino annullato: non è stato cambiato niente.')
+            return 1
+
+        def rimetti(repo):
+            self.salva_esito(repo, copia['caselle'])
+            self.ripristina_caselle(repo, copia['caselle'])
+            self.ripristina_database(repo, copia['database'])
+        self.con_disco(part, uuid, rimetti, True)
+        self.sistema_stato()
+        return self.controllo_finale()
+
+    def scegli_disco(self):
+        while True:
+            trovati = []
+            for d in dischi_usb():
+                for p in d['partizioni']:
+                    nome = p['etichetta'][len(cp.PREFISSO_ETICHETTA):]
+                    if p['fs'] == 'ext4' and p['etichetta'].startswith(cp.PREFISSO_ETICHETTA) and cp.NOME_DISCO.match(nome):
+                        trovati.append(('/dev/' + p['nome'], p['uuid'], nome, d['modello']))
+            if len(trovati) == 1:
+                self.scrivi(f'Disco di backup trovato: {trovati[0][2]} ({trovati[0][3]}).')
+                return trovati[0][:3]
+            if trovati:
+                self.scrivi('Dischi di backup collegati:')
+                for i, t in enumerate(trovati, 1):
+                    self.scrivi(f'  {i}) {t[2]} ({t[3]})')
+                scelta = self.chiedi('Quale uso? [1] ', '1')
+                if scelta.isdigit() and 1 <= int(scelta) <= len(trovati):
+                    return trovati[int(scelta) - 1][:3]
+                continue
+            self.scrivi('Non trovo nessun disco di backup (disco USB con la partizione PIGRECO-...).')
+            if self.chiedi('Collegalo e premi Invio (oppure scrivi "esci"): ').lower() == 'esci':
+                raise Errore('Ripristino annullato: nessun disco di backup')
+
+    def apri(self, repo, nome):
+        """Prima con la password di questo server, poi chiedendola (foglio di ripristino)."""
+        if not os.path.isfile(os.path.join(repo, 'config')):
+            self.scrivi(f'Sul disco {nome} non ci sono copie della posta (manca la cartella {cp.CARTELLA_COPIE}/).')
+            return None
+        candidata = os.environ.get('BACKUP_PASSWORD', '')
+        for tentativo in range(4):
+            if candidata:
+                os.environ['BACKUP_PASSWORD'] = candidata
+                try:
+                    copie = [c for c in self.elenco_copie(repo, sola_lettura=True) if c['database'] and c['caselle']]
+                    self.password = candidata
+                    if not copie:
+                        raise Errore("Sul disco non c'è nessuna copia completa (database e caselle)")
+                    return copie
+                except Errore as e:
+                    if str(e) != 'Password delle copie sbagliata':
+                        raise
+                    if tentativo:
+                        self.scrivi('Password sbagliata.')
+            if tentativo == 3:
+                break
+            candidata = ''.join(self.chiedi('Password delle copie (è sul foglio di ripristino; gli spazi non contano): ',
+                                            nascosta=True).split())
+        self.scrivi('Le copie non si aprono con questa password. Controlla il foglio di ripristino e riprova.')
+        return None
+
+    def scegli_copia(self, copie):
+        self.scrivi('\nCopie sul disco (la più recente per prima):')
+        for i, c in enumerate(copie[:30], 1):
+            self.scrivi(f'  {i:2}) {self.data(c["data"])}')
+        if len(copie) > 30:
+            self.scrivi(f'  … e altre {len(copie) - 30} più vecchie')
+        while True:
+            scelta = self.chiedi('Quale copia rimetto? [1 = la più recente] ', '1')
+            if scelta.isdigit() and 1 <= int(scelta) <= min(30, len(copie)):
+                return copie[int(scelta) - 1]
+
+    def ripristina_caselle(self, repo, snapshot):
+        self.scrivi('\n1/3 Caselle: le copio in /srv/posta (può volerci molto, dipende da quanta posta c\'è)...')
+        ultimo = [-5]
+
+        def avanza(s):
+            p = int(100 * float(s.get('percent_done') or 0))
+            if p >= ultimo[0] + 5:
+                ultimo[0] = p
+                self.scrivi(f'    {p}%')
+        restic(repo, ['restore', f'{snapshot}:{DATI}', '--no-lock', '--json', '--target', DATI], su_stato=avanza)
+        self.scrivi('    Caselle a posto.')
+
+    def ripristina_database(self, repo, snapshot):
+        """Database della webmail dal dump (che li cancella e ricrea): dopo vale la chiave del vecchio .env."""
+        self.scrivi('\n2/3 Database della webmail: lo ricarico dalla copia...')
+        codice, uscita, errori = comando(['bash', '-o', 'pipefail', '-c',
+            'restic -r "$1" --no-cache --quiet --no-lock dump "$2" /webmail.sql'
+            ' | mysql --skip-ssl-verify-server-cert -h db -P 3306 -u root',
+            '_', repo, snapshot], {'RESTIC_PASSWORD': self.password, 'MYSQL_PWD': os.environ.get('DB_ROOT_PASS', '')})
+        if codice != 0:
+            raise Errore('Il database non si carica: ' + ultime_righe(errori + uscita)
+                         + '. Rilancia il ripristino; se si ripete prova una copia più vecchia.')
+        # Per lo script: da qui gli account della webmail vogliono la chiave del vecchio .env
+        open(os.path.join(self.ESITO, 'database_caricato'), 'w').close()
+        self.scrivi('    Database a posto.')
+
+    def salva_esito(self, repo, snapshot):
+        """La password delle copie e il .env del vecchio server, per scripts/ripristina-backup.sh"""
+        def pc_scrivi(nome, testo):
+            with open(os.path.join(self.ESITO, nome), 'w', encoding='utf-8') as f:
+                f.write(testo)
+        pc_scrivi('backup_password', self.password)
+        codice, env, _ = comando(['restic', '-r', repo, '--no-cache', '--quiet', '--no-lock', 'dump', snapshot, ENV],
+                                 {'RESTIC_PASSWORD': self.password})
+        if codice == 0 and env:
+            pc_scrivi('env-dalla-copia', env)
+        uid, _, gid = os.environ.get('PROPRIETARIO', '0:0').partition(':')
+        for nome in os.listdir(self.ESITO):
+            percorso = os.path.join(self.ESITO, nome)
+            os.chmod(percorso, 0o600)
+            os.chown(percorso, int(uid), int(gid or uid))
+
+    def sistema_stato(self):
+        """
+        Nella copia lo stato delle copie aveva la copia stessa "in corso":
+        diventa riuscita (al riavvio sarebbe segnata come interrotta).
+        """
+        st = cp.stato()
+        lavoro = st.get('lavoro')
+        if lavoro:
+            lavoro.update(stato='riuscito', fine=lavoro.get('inizio') or time.time(), avanzamento=None,
+                          messaggio=f"Copia usata per il ripristino del {time.strftime('%d/%m/%Y')}")
+            cp.scrivi(cp.LAVORI, [lavoro] + [x for x in cp.lavori() if x.get('id') != lavoro.get('id')])
+            st['lavoro'] = None
+            cp.scrivi(cp.STATO, st)
+
+    def controllo_finale(self):
+        self.scrivi('\n3/3 Controllo: ogni casella ha la sua cartella?')
+        caselle = pc.leggi_account() if os.path.isfile(pc.CONFIG) else []
+        mancanti = [a['indirizzo'] for a in caselle if not os.path.isdir(os.path.join(DATI, a['indirizzo'], 'Maildir'))]
+        self.scrivi(f'    Caselle: {len(caselle)}.')
+        if mancanti:
+            self.scrivi(f"    ATTENZIONE: caselle senza email copiate: {', '.join(mancanti)}.")
+            self.scrivi('    Si riempiono alla prossima sincronizzazione, se sul gestore ci sono ancora.')
+            return 2
+        self.scrivi('    Tutte le caselle hanno le loro email.')
+        return 0
+
+    @staticmethod
+    def data(ts):
+        return time.strftime('%d/%m/%Y alle %H:%M', time.localtime(ts))
+
+
 def main():
     if '--dischi' in sys.argv:
         print(json.dumps(dischi_usb(), indent=2, ensure_ascii=False))
         return
+    if '--avvisi' in sys.argv:
+        print(Servizio().avvisi_per_email(prova=True) or 'Nessun avviso da mandare.')
+        return
+    if '--ripristina' in sys.argv:
+        try:
+            sys.exit(Ripristino().esegui_ripristino())
+        except Errore as e:
+            print(f'\nRipristino non riuscito: {e}', flush=True)
+            sys.exit(1)
     servizio = Servizio()
     servizio.avvio()
     log('INFO', f'Avvio servizio copie di backup (intervallo: {INTERVALLO}s)')

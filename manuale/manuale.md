@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.2 · ottobre 2026
+Versione 1.3 · ottobre 2026
 
 PiGreco Posta fa due cose:
 
@@ -112,6 +112,7 @@ Le impostazioni sono nel file `.env`, nella cartella di PiGreco Posta:
 | `POSTA_DIR` | `/srv/posta` | Dove stanno le caselle copiate (una cartella per indirizzo, con la sua `Maildir`) |
 | `WEBMAIL_DB_DIR` | `/srv/posta/mysql` | Dove sta il database della webmail |
 | `POSTA_INTERVALLO` | 300 | Secondi tra una copia e la successiva |
+| `BACKUP_PASSWORD` | (casuale) | Password che cifra le copie di backup sui dischi USB (capitolo 12): la crea `installa.sh`, è sul foglio di ripristino |
 
 Se `installa.sh` dice che una porta è già usata (per esempio perché sul server c'è già un altro
 server di posta), cambia il valore in `.env`, ad esempio `POSTA_IMAP_PORT=1143`, e rilancia
@@ -462,25 +463,96 @@ tecnico.
 
 ## 12. Backup e aggiornamenti
 
-### 12.1 Cosa salvare
+Le copie di backup della posta si fanno da sole su **dischi USB**, dalla pagina **Gestione caselle ›
+💾 Copie di backup**.
 
-| Cosa | Dove | Perché |
-|---|---|---|
-| Le caselle copiate | `/srv/posta/` | Tutta la posta |
-| Il database della webmail | `/srv/posta/mysql/` | Utenti, account, filtri |
-| Il file `.env` | cartella di PiGreco Posta | Contiene la chiave che cifra le password |
+### 12.1 Come funzionano le copie
 
-Un solo comando salva tutto in un file, senza fermare niente:
+- Ogni copia contiene **tutto**: le caselle copiate (`/srv/posta`), il database della webmail
+  (utenti, account, filtri) e il file `.env` con la chiave che cifra le password delle caselle.
+- Le copie sono **cifrate** con la password delle copie (`BACKUP_PASSWORD` in `.env`): senza
+  quella non si aprono, da nessuno. La password è sul **foglio di ripristino** (paragrafo 12.6).
+- Sul disco si aggiungono solo le **novità**: la prima copia è lunga, le altre durano pochi minuti.
+  Ogni copia però è completa.
+- Il disco si usa **solo durante la copia**: per il resto del tempo lo puoi staccare.
+- Gli **stessi dischi** possono tenere anche le copie di **PiGreco Archivio**: ognuno ha la sua
+  cartella (`pigreco-posta/`, `pigreco-archivio/`) e la sua password.
+
+> Consiglio: **due dischi** (per esempio BK1 e BK2), uno collegato al server e l'altro **a casa**,
+> da scambiare una volta alla settimana. Così una copia è sempre fuori dall'ufficio.
+
+### 12.2 Preparare o usare un disco
+
+Collega il disco al server: dopo qualche secondo compare in **Dischi USB collegati**.
+
+- Disco **già preparato** (da PiGreco Posta o da PiGreco Archivio, partizione `PIGRECO-<NOME>`):
+  premi **✅ Usa questo disco**. Non si cancella niente: le copie della posta vanno nella loro
+  cartella.
+- Disco **nuovo**: **🧹 Prepara questo disco…**, scrivi il nome (da 1 a 8 lettere o cifre, es.
+  **BK1**) e la parola **FORMATTA**. **Tutto quello che c'è sul disco viene cancellato.**
+
+Il programma non formatta mai un disco già preparato, né uno che contiene copie di PiGreco (le
+cerca dentro il disco prima di formattare), né un disco aperto sul desktop o in uso: in quel caso
+spiega perché. **Non usarlo più** smette di usare un disco, ma le copie già fatte restano sopra.
+
+### 12.3 Quando si fanno le copie
+
+Nella sezione **Impostazioni › Quando** scegli giorni e ora (di serie dal lunedì al venerdì alle
+**23:00**, un'ora dopo PiGreco Archivio). Se a quell'ora il server era spento o il disco staccato,
+la copia parte appena possibile, una volta sola. Se colleghi un disco la cui ultima copia ha più di
+un giorno, la copia parte subito: porti il disco da casa, lo colleghi e si aggiorna da solo.
+**💾 Fai la copia adesso** la fa subito.
+
+Mentre lavora la pagina mostra "Copia in corso… **non staccare il disco**"; alla fine "Puoi staccare
+il disco".
+
+### 12.4 Quante copie tenere, controlli e avvisi
+
+- **Quante copie tenere**: le ultime 7 giornaliere, 4 settimanali e 12 mensili (si cambiano); le più
+  vecchie si cancellano da sole.
+- **Verifica**: ogni 30 giorni il programma rilegge una parte delle copie del disco collegato, per
+  accorgersi di un disco che si rovina (anche subito con **🔍 Verifica**).
+- **Avvisi**: in cima alle pagine di Gestione caselle compare una striscia, e parte un'email
+  all'amministratore (al massimo una al giorno per tipo), quando l'ultima copia è più vecchia dei
+  giorni scelti (3), non è riuscita, un disco è quasi pieno, la verifica ha trovato errori, o con
+  due dischi lo stesso è collegato da più di 7 giorni ("scambialo con quello a casa").
+
+### 12.5 Email dell'amministratore
+
+Gli avvisi partono con un server di posta in uscita apposta, in **Gestione caselle › ⚙️
+Impostazioni**: server SMTP, porta, sicurezza, utente, password, mittente e destinatari. Puoi
+usare la casella del titolare. **✉️ Salva e manda un'email di prova** controlla subito che funzioni.
+Senza SMTP gli avvisi restano solo nella striscia.
+
+### 12.6 Foglio di ripristino
+
+In fondo a **Copie di backup** scrivi la password della pagina e premi **🖨️ Apri il foglio di
+ripristino**: c'è la **password delle copie**, l'elenco dei dischi e i passi per rimettere tutto su
+un server nuovo. **Stampalo**, chiudilo in una busta con il disco che tieni a casa e chiudi la
+scheda. Chi ha il foglio e un disco può leggere tutta la posta; senza il foglio, se il server si
+rompe, nessuno può aprire le copie.
+
+### 12.7 Rimettere tutta la posta su un server nuovo
+
+1. Installa PiGreco Posta come la prima volta (capitolo 2).
+2. Collega il disco di backup più recente.
+3. Dalla cartella del programma: `./scripts/ripristina-backup.sh`. Scrivi la password delle copie
+   (dal foglio; gli spazi non contano), scegli la copia e conferma scrivendo **RIPRISTINA**.
+4. Caselle, utenti, account e filtri tornano come al momento della copia; il programma riparte da
+   solo. Controlla webmail e Gestione caselle e stampa di nuovo il foglio di ripristino.
+
+I dettagli per il tecnico sono nella guida [`INSTALLA-DEBIAN.md`](../INSTALLA-DEBIAN.md), paragrafo 8.
+
+### 12.8 Una copia a mano in un file
+
+Resta anche il vecchio comando, che salva tutto in un file `.tar.gz` (per esempio prima di un
+intervento sul server):
 
 ```bash
 sudo ./scripts/backup.sh /percorso/backup
 ```
 
-Il database viene salvato con `mysqldump` (i suoi file copiati a programma acceso potrebbero non
-ripartire). `sudo` serve perché i file delle caselle sono dei programmi che li usano, non del tuo
-utente. Il ripristino è nella guida [`INSTALLA-DEBIAN.md`](../INSTALLA-DEBIAN.md), paragrafo 8.
-
-### 12.2 Aggiornare
+### 12.9 Aggiornare
 
 ```bash
 git pull
@@ -537,3 +609,9 @@ I passi dell'installazione sono nella guida di PiGreco Archivio (`INSTALLA-DEBIA
 | "Testa connessione" non riesce sull'IMAP | Server `posta`, porta 143, STARTTLS, utente = indirizzo email, password = password **locale** (non quella del gestore) |
 | "Testa connessione" non riesce sull'SMTP | Controlla con il gestore server, porta e sicurezza dell'invio |
 | Dopo un ripristino le caselle chiedono di nuovo la password | La chiave in `.env` non è quella di prima: rimetti il `.env` del backup |
+| Striscia "Il servizio delle copie di backup non risponde" | `docker compose up -d posta-backup`, poi `docker compose logs posta-backup` |
+| "L'ultima copia di backup della posta riuscita è di … giorni fa" | Collega un disco di backup: la copia parte da sola (paragrafo 12.3) |
+| Un disco USB "non si può usare" | È aperto sul desktop o in uso (smontalo e riprova), oppure contiene volumi speciali (LVM, cifrati) |
+| "Il disco è in uso" preparando un disco | Smontalo dal desktop (**Smonta**), aspetta qualche secondo e riprova |
+| "Sul disco ci sono copie di PiGreco … non si formatta" | È un disco di backup: ricollegalo, deve comparire come già preparato (**Usa questo disco**) |
+| L'email di prova degli avvisi non parte | Controlla server, porta e sicurezza (465 SSL, 587 STARTTLS) e utente e password della casella |

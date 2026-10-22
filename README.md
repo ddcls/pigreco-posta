@@ -15,6 +15,7 @@ provider (Gmail, Libero, Aruba, PEC…) ──IMAP──▶ local copy on your d
 - **Free up space at the provider, safely (optional).** For each mailbox you can keep only the last N days on the provider. An email is deleted from the provider **only if its local copy has been verified**. The default is 0: nothing is ever deleted.
 - **Webmail.** Multi-account, multi-user. Three-pane layout that also works on phones. Search, folders, drag & drop into folders, multi-select, drafts with autosave, important ⭐, server-side **filters**, colour themes. Sending goes through each provider's own SMTP.
 - **"Gestione caselle" web page** to add mailboxes, test the provider login, see sync status and set the cleanup.
+- **Backups on USB disks**, automatic and encrypted (restic), with e-mail alerts, a recovery sheet and a one-command full restore. The same disks can also hold PiGreco Archivio's backups.
 - **Everything in Docker**: webmail (PHP 8.3 + Apache), MySQL 8, Dovecot, mbsync, management page.
 
 The user interface is in **Italian** for now. Translations are welcome.
@@ -64,12 +65,13 @@ docker compose ps                         # status
 docker compose logs -f posta-sincronizza  # sync log
 ./scripts/password-webmail.sh [user]      # set a webmail password
 ./scripts/password-gestione.sh [user]     # set the management page login
+./scripts/ripristina-backup.sh            # restore all mail from a backup disk
 sudo ./scripts/backup.sh <folder>         # back up mailboxes, database and .env in one file
 ./scripts/confronta.sh [address]          # compare provider vs local counts, folder by folder
 git pull && docker compose up -d --build  # update
 ```
 
-Mailboxes and database live in `/srv/posta`: `sudo ./scripts/backup.sh <folder>` backs them up in a single file, together with `.env`. Keep that file safe: `.env` holds the encryption key of the saved passwords.
+Mailboxes and database live in `/srv/posta`. Encrypted backups (restic) run automatically on USB disks, from Gestione caselle › Copie di backup (manual, chapter 12), with e-mail alerts, a printable recovery sheet and a one-command restore; the same disks can also hold PiGreco Archivio's backups. `sudo ./scripts/backup.sh <folder>` still makes a manual backup in a single file, together with `.env`. Keep backups and the recovery sheet safe: `.env` holds the encryption key of the saved passwords.
 
 ## Security notes
 

@@ -26,6 +26,7 @@ Tutto sta in /srv/posta/config/backup/ (quindi anche nelle copie):
   dischi.json        dischi di backup registrati (scritto solo dal servizio)
   stato.json         segnale di vita, dischi collegati, lavoro in corso (servizio)
   lavori.json        ultimi lavori con l'esito (servizio)
+  avvisi_inviati.json  avvisi già mandati per email, per tipo e giorno (servizio)
 
 I dischi sono gli stessi di PiGreco Archivio: partizione ext4 con etichetta
 PIGRECO-<NOME>, preparata da uno dei due programmi. Ognuno scrive solo nella
@@ -48,6 +49,7 @@ RICHIESTE = os.path.join(CARTELLA, 'richieste')
 DISCHI = os.path.join(CARTELLA, 'dischi.json')
 STATO = os.path.join(CARTELLA, 'stato.json')
 LAVORI = os.path.join(CARTELLA, 'lavori.json')
+AVVISI_INVIATI = os.path.join(CARTELLA, 'avvisi_inviati.json')
 
 PREFISSO_ETICHETTA = 'PIGRECO-'
 NOME_DISCO = re.compile(r'^[A-Z0-9]{1,8}$')   # l'etichetta ext4 ha al massimo 16 caratteri
@@ -61,6 +63,8 @@ NUMERI = {
     'tieni_settimane': (4, 0, 520, 'copie settimanali'),
     'tieni_mesi': (12, 0, 240, 'copie mensili'),
     'verifica_giorni': (30, 0, 365, 'giorni tra due verifiche'),
+    'avviso_giorni': (3, 1, 60, "giorni per l'avviso"),
+    'rotazione_giorni': (7, 0, 90, 'giorni per lo scambio dei dischi'),
 }
 NOMI_LAVORO = {'copia': 'Copia', 'verifica': 'Verifica disco', 'prepara_disco': 'Preparazione disco',
                'usa_disco': 'Registrazione disco', 'dimentica_disco': 'Disco tolto'}
@@ -93,6 +97,7 @@ def impostazioni():
         # Di serie un'ora dopo PiGreco Archivio (22:00): non si contendono il disco
         'ora': ora if ORA.match(ora) else '23:00',
         'al_collegamento': bool(grezze.get('al_collegamento', True)),
+        'avvisi_email': bool(grezze.get('avvisi_email', True)),
     }
     for chiave, (predefinito, minimo, massimo, _) in NUMERI.items():
         v = grezze.get(chiave, predefinito)
@@ -109,6 +114,7 @@ def salva_impostazioni(dati):
         raise ValueError("L'ora della copia va scritta come 23:00")
     imp['ora'] = ora
     imp['al_collegamento'] = bool(dati.get('al_collegamento'))
+    imp['avvisi_email'] = bool(dati.get('avvisi_email'))
     for chiave, (_, minimo, massimo, nome) in NUMERI.items():
         v = str(dati.get(chiave, '')).strip()
         if not v.isdigit() or not minimo <= int(v) <= massimo:

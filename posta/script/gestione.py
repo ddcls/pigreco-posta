@@ -23,6 +23,8 @@ per aggiungere, modificare, sospendere e rimuovere le caselle copiate in
 locale, provare l'accesso al gestore e vedere lo stato della sincronizzazione.
 Pagina "Copie di backup" (/copie): dischi USB, copie e impostazioni; il
 lavoro lo fa il servizio posta-backup (backup.py), qui si mettono richieste.
+Pagina "Impostazioni" (/impostazioni): SMTP dell'amministratore per gli avvisi.
+In cima a ogni pagina la striscia con gli avvisi delle copie (avvisi.py).
 
 Login: un solo amministratore, impostato da terminale con
     ./scripts/password-gestione.sh [utente]   (dalla cartella di PiGreco Posta)
@@ -41,12 +43,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import avvisi  # noqa: E402
 import copie  # noqa: E402
 import postaconf as pc  # noqa: E402
 
 # Versione e codice sorgente (la stessa versione è in webmail/lib/info.php):
 # la AGPL chiede di mostrare copyright, licenza e dove trovare il sorgente
-VERSIONE = '1.2'
+VERSIONE = '1.3'
 SORGENTE = 'https://github.com/ddcls/pigreco-posta'
 
 PORTA = int(os.environ.get('POSTA_GESTIONE_PORTA_INTERNA', '8080'))
@@ -152,6 +155,11 @@ nav.schede a.attiva { background:rgba(255,255,255,.22); }
 .numeri { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0 12px; }
 .attenzione { border:2px solid var(--errore); border-radius:8px; padding:12px; }
 .scorre table { min-width:640px; }
+.striscia { border:1px solid var(--avviso); border-left-width:6px; border-radius:6px; padding:8px 12px; margin-bottom:14px; }
+.striscia p { margin:4px 0; }
+@media print { header, footer, .non-stampare { display:none !important; } body { background:#fff; color:#000; font-size:11.5px; }
+  main { padding:0; } .pannello { border:0; padding:0; margin:0; } h2 { margin:0 0 4px; } h3 { margin:10px 0 4px; }
+  .messaggio { margin:6px 0; } th, td { padding:3px 6px; } ol { margin:4px 0; } }
 @media (max-width:640px) { header { flex-wrap:wrap; } header h1 { flex-basis:100%; } }
 """
 
@@ -205,7 +213,14 @@ class Gestione(BaseHTTPRequestHandler):
         uscita = '<a href="/esci">Esci</a>' if s else ''
         attiva = ' class="attiva"'
         schede = ''.join(f'<a href="{u}"{attiva if scheda == k else ""}>{t}</a>'
-                         for k, u, t in (('caselle', '/', 'Caselle'), ('copie', '/copie', '💾 Copie di backup'))) if s else ''
+                         for k, u, t in (('caselle', '/', 'Caselle'), ('copie', '/copie', '💾 Copie di backup'),
+                                         ('impostazioni', '/impostazioni', '⚙️ Impostazioni'))) if s else ''
+        # Avvisi delle copie: nella pagina delle copie sono già nel riquadro dello stato
+        if s and scheda != 'copie':
+            elenco = avvisi.avvisi()
+            if elenco:
+                contenuto = ('<div class="striscia non-stampare">' + ''.join(f'<p>⚠️ {e(a["testo"])}</p>' for a in elenco)
+                             + '<p><a href="/copie">Apri le copie di backup</a></p></div>' + contenuto)
         self.invia(codice, f"""<!doctype html><html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(titolo)} – PiGreco Posta</title><style>{STILE}</style></head>
@@ -245,6 +260,9 @@ class Gestione(BaseHTTPRequestHandler):
             return self.pagina_copie(s, e(q.get('msg', '')), tipo)
         if url.path == '/copie/prepara':
             return self.pagina_prepara(s, q.get('dispositivo', ''))
+        if url.path == '/impostazioni':
+            tipo = q.get('tipo', 'ok') if q.get('tipo') in ('ok', 'errore', 'avviso') else 'ok'
+            return self.pagina_impostazioni(s, e(q.get('msg', '')), tipo)
         self.pagina('Non trovata', '<p>Pagina non trovata. <a href="/">Torna all\'elenco</a></p>', s, 404)
 
     def do_POST(self):
@@ -262,7 +280,9 @@ class Gestione(BaseHTTPRequestHandler):
                   '/sincronizza': self.sincronizza,
                   '/copie/copia': self.copie_copia, '/copie/verifica': self.copie_verifica,
                   '/copie/prepara': self.copie_prepara, '/copie/usa': self.copie_usa,
-                  '/copie/dimentica': self.copie_dimentica, '/copie/impostazioni': self.copie_impostazioni}
+                  '/copie/dimentica': self.copie_dimentica, '/copie/impostazioni': self.copie_impostazioni,
+                  '/copie/foglio': self.copie_foglio,
+                  '/impostazioni/salva': self.salva_impostazioni, '/impostazioni/prova': self.prova_invio}
         if url.path in azioni:
             return azioni[url.path](s, dati)
         self.pagina('Non trovata', '<p>Azione sconosciuta.</p>', s, 404)
@@ -744,6 +764,11 @@ dopo la prossima sincronizzazione. Le altre restano sul gestore. <span class="te
                 classe = 'errore'
                 testo += (f'<p>❌ L\'ultimo lavoro non è riuscito ({e(copie.NOMI_LAVORO.get(finito["tipo"], ""))}, '
                           f'{quando(finito.get("fine"))}): {e(finito.get("messaggio"))}</p>')
+            # Gli stessi avvisi della striscia e delle email (servizio e fallita sono già sopra)
+            altri_avvisi = [a for a in avvisi.avvisi() if a['tipo'] not in ('servizio', 'fallita', 'nessun_disco')]
+            if altri_avvisi:
+                classe = classe if classe == 'errore' else 'avviso'
+                testo += ''.join(f'<p>⚠️ {e(a["testo"])}</p>' for a in altri_avvisi)
             prossima = copie.turno_successivo(imp, datetime.datetime.now())
             if prossima and registrati:
                 testo += (f'<p>🕘 Prossima copia automatica: {GIORNI[prossima.isoweekday()]} '
@@ -825,6 +850,11 @@ dopo la prossima sincronizzazione. Le altre restano sul gestore. <span class="te
             return (f'<div><label for="{chiave}">{testo}</label><input type="number" id="{chiave}" name="{chiave}" '
                     f'value="{imp[chiave]}" min="{minimo}" max="{massimo}" step="1"></div>')
 
+        if avvisi.smtp_configurato():
+            nota_email = ("Le email partono con l'SMTP di <a href=\"/impostazioni\">Impostazioni</a> verso "
+                          + e(', '.join(avvisi.smtp()['destinatari'])) + '.')
+        else:
+            nota_email = "⚠️ Per le email imposta prima l'SMTP dell'amministratore in <a href=\"/impostazioni\">Impostazioni</a>."
         avviso = f'<div class="messaggio {e(tipo)}">{msg}</div>' if msg else ''
         aggiorna = '<meta http-equiv="refresh" content="5">' if occupato and attivo else ''
         self.pagina('Copie di backup', f"""{aggiorna}{avviso}<div class="pannello">
@@ -852,8 +882,21 @@ Il disco si può staccare in qualunque momento, tranne durante una copia.</p>
 Copia appena colleghi un disco di backup, se la sua ultima copia ha più di un giorno</label>
 <h3>Quante copie tenere su ogni disco</h3><div class="numeri">
 {numero('tieni_giorni', 'Giornaliere')}{numero('tieni_settimane', 'Settimanali')}{numero('tieni_mesi', 'Mensili')}</div>
-<h3>Controlli</h3><div class="numeri">{numero('verifica_giorni', 'Verifica ogni disco ogni … giorni (0 = mai)')}</div>
-<div class="azioni"><button type="submit">Salva</button></div></form></div>""", s, scheda='copie')
+<h3>Controlli e avvisi</h3><div class="numeri">{numero('verifica_giorni', 'Verifica ogni disco ogni … giorni (0 = mai)')}
+{numero('avviso_giorni', "Avvisami se l'ultima copia ha più di … giorni")}
+{numero('rotazione_giorni', 'Con due o più dischi, ricordami di scambiarli ogni … giorni (0 = mai)')}</div>
+<label style="font-weight:normal"><input type="checkbox" name="avvisi_email" value="1"{" checked" if imp['avvisi_email'] else ""}>
+Manda gli avvisi anche per email (al massimo uno al giorno per tipo)</label>
+<div class="tenue">{nota_email}</div>
+<div class="azioni"><button type="submit">Salva</button></div></form></div>
+<div class="pannello"><h2>Foglio di ripristino</h2>
+<p class="tenue">Contiene la <b>password delle copie</b>, l'elenco dei dischi e come rimettere tutta la posta su un server
+nuovo. Stampalo e chiudilo in una busta insieme al disco che tieni fuori dall'ufficio: senza quella password le copie
+non si aprono.</p>
+<form method="post" action="/copie/foglio" target="_blank">{csrf}
+<div style="max-width:320px"><label for="pw-foglio">La password di questa pagina</label>
+<input type="password" id="pw-foglio" name="password" autocomplete="current-password" required></div>
+<div class="azioni"><button class="secondario" type="submit">🖨️ Apri il foglio di ripristino</button></div></form></div>""", s, scheda='copie')
 
     def disco_visto(self, dispositivo):
         st = copie.stato()
@@ -954,6 +997,107 @@ formatta. Un disco preparato da PiGreco Archivio non compare qui: si usa con "Us
         except ValueError as ex:
             return self.pagina_copie(s, e(str(ex)), 'errore')
         self.vai('/copie?' + urlencode({'msg': 'Impostazioni delle copie salvate.'}))
+
+    def copie_foglio(self, s, dati):
+        """Foglio da stampare: la password delle copie, quindi si chiede di nuovo quella della pagina."""
+        if not pc.verifica_gestione(s.get('utente') or '', dati.get('password', '')):
+            time.sleep(1)
+            return self.pagina('Foglio di ripristino', '<div class="messaggio errore">Password sbagliata. '
+                               '<a href="/copie">Torna alle copie di backup</a></div>', s, 403, scheda='copie')
+        password = os.environ.get('BACKUP_PASSWORD', '')
+        if not password:
+            return self.pagina('Foglio di ripristino', '<div class="messaggio errore">Manca la password delle copie '
+                               '(BACKUP_PASSWORD nel .env): rilancia ./installa.sh.</div>', s, 409, scheda='copie')
+        gruppi = ' '.join(password[i:i + 4] for i in range(0, len(password), 4))
+        righe = ''.join(f"""<tr><td>{e(d['nome'])}</td><td>{e(d.get('modello') or 'Disco USB')}</td><td>{e(d.get('seriale') or '—')}</td>
+<td>{copie.byte(d.get('dimensione'))}</td><td>{time.strftime('%d/%m/%Y', time.localtime(d.get('registrato_il') or 0))}</td></tr>"""
+                        for d in copie.dischi_registrati()) or '<tr><td colspan="5">Nessun disco preparato finora.</td></tr>'
+        sys.stdout.write(f"{time.strftime('%F %T')} Foglio di ripristino aperto da {self.ip()}\n")
+        self.pagina('Foglio di ripristino', f"""<div class="pannello">
+<h2>Foglio di ripristino delle copie di backup della posta</h2>
+<p class="tenue">PiGreco Posta · stampato il {time.strftime('%d/%m/%Y alle %H:%M')}</p>
+<div class="messaggio errore"><b>RISERVATO.</b> Chi ha questo foglio e un disco di backup può leggere tutta la posta.
+Chiudilo in una busta e conservalo insieme al disco che tieni fuori dall'ufficio. Senza questa password le copie non si
+possono aprire, da nessuno.</div>
+<h3>Password delle copie</h3>
+<p style="font:bold 22px ui-monospace, 'DejaVu Sans Mono', monospace;border:1px solid;padding:12px;text-align:center;letter-spacing:1px">{e(gruppi)}</p>
+<p class="tenue">Si scrive tutta attaccata, senza gli spazi (servono solo a leggerla meglio). Maiuscole e minuscole sono
+diverse; contiene solo lettere senza accenti e cifre.</p>
+<h3>Dischi di backup</h3><table><tr><th>Nome</th><th>Modello</th><th>Seriale</th><th>Capacità</th><th>Registrato il</th></tr>{righe}</table>
+<p class="tenue">Le copie sono nella partizione PIGRECO-&lt;nome&gt; (ext4), cartella {copie.CARTELLA_COPIE}/; quelle di PiGreco
+Archivio, se c'è, nella cartella pigreco-archivio/ (con la sua password, sul suo foglio).</p>
+<h3>Se il server si rompe: rimettere tutta la posta su un server nuovo</h3><ol>
+<li>Installa PiGreco Posta sul server nuovo, come la prima volta (./installa.sh, guida INSTALLA-DEBIAN.md).</li>
+<li>Collega il disco di backup più recente (se il desktop lo apre, va bene lo stesso).</li>
+<li>Dalla cartella del programma lancia ./scripts/ripristina-backup.sh.</li>
+<li>Quando lo chiede, scrivi la password delle copie di questo foglio e scegli la copia da rimettere (di solito la più recente).</li>
+<li>Alla fine entra nella webmail e in Gestione caselle e controlla caselle e account. Poi stampa di nuovo questo foglio.</li></ol>
+<h3>Per il tecnico</h3>
+<p class="tenue">Le copie sono fatte con restic (restic.net) e si aprono anche senza il programma: montare la partizione, poi</p>
+<pre style="white-space:pre-wrap">restic -r &lt;disco&gt;/{copie.CARTELLA_COPIE} snapshots
+restic -r &lt;disco&gt;/{copie.CARTELLA_COPIE} restore latest --tag caselle --target /tmp/ripristino
+restic -r &lt;disco&gt;/{copie.CARTELLA_COPIE} dump latest --tag database /webmail.sql &gt; webmail.sql</pre>
+<p class="tenue">Ogni copia ha due parti con la stessa data: i database della webmail (tag "database", dump fatto
+con mysqldump di MariaDB, senza gli utenti di MySQL) e le caselle (/srv/posta senza i file di MySQL) più il .env con la
+chiave che cifra le password delle caselle (tag "caselle").</p>
+<div class="azioni non-stampare"><button type="button" onclick="window.print()">🖨️ Stampa</button>
+<span class="tenue">Dopo averlo stampato chiudi questa scheda.</span></div></div>""", s, scheda='copie')
+
+    # ---------- impostazioni: SMTP dell'amministratore ----------
+
+    def pagina_impostazioni(self, s, msg='', tipo='ok', valori=None):
+        conf = valori or avvisi.smtp()
+        if not valori:
+            conf = dict(conf, destinatari=', '.join(conf['destinatari']))
+        sic = conf.get('sicurezza', 'ssl')
+        avviso = f'<div class="messaggio {e(tipo)}">{msg}</div>' if msg else ''
+        csrf = csrf_campo(s)
+        opzioni = ''.join(f'<option value="{v}"{" selected" if sic == v else ""}>{t}</option>'
+                          for v, t in (('ssl', 'SSL/TLS (di solito porta 465)'), ('starttls', 'STARTTLS (di solito porta 587)'),
+                                       ('nessuna', 'Nessuna (sconsigliato)')))
+        password_salvata = bool(avvisi.smtp()['password'])
+        self.pagina('Impostazioni', f"""{avviso}<div class="pannello"><h2>⚙️ Email dell'amministratore</h2>
+<p class="tenue">Server di posta in uscita con cui PiGreco Posta manda gli avvisi all'amministratore (per esempio se le copie
+di backup non si fanno). Puoi usare la casella del titolare o una casella apposta. Lasciando vuoto il server non parte
+nessuna email: gli avvisi restano solo in queste pagine.</p>
+<form method="post" action="/impostazioni/salva">{csrf}
+<div class="riga"><div><label for="server">Server SMTP</label>
+<input type="text" id="server" name="server" value="{e(conf.get('server'))}" placeholder="smtp.libero.it"></div>
+<div><label for="porta">Porta</label><input type="number" id="porta" name="porta" value="{e(conf.get('porta') or 465)}" min="1" max="65535"></div>
+<div><label for="sicurezza">Sicurezza</label><select id="sicurezza" name="sicurezza">{opzioni}</select></div></div>
+<div class="riga"><div><label for="utente">Utente</label>
+<input type="text" id="utente" name="utente" value="{e(conf.get('utente'))}" autocomplete="off" placeholder="mario.rossi@libero.it"></div>
+<div style="grid-column:span 2"><label for="password">Password</label>
+<input type="password" id="password" name="password" autocomplete="new-password"
+ placeholder="{'già salvata: lascia vuoto per non cambiarla' if password_salvata else ''}"></div></div>
+<label for="mittente">Mittente <span class="tenue">(vuoto = l'utente)</span></label>
+<input type="text" id="mittente" name="mittente" value="{e(conf.get('mittente'))}" placeholder="mario.rossi@libero.it">
+<label for="destinatari">Destinatari degli avvisi <span class="tenue">(separati da virgola)</span></label>
+<input type="text" id="destinatari" name="destinatari" value="{e(conf.get('destinatari'))}" placeholder="titolare@studio.it, tecnico@esempio.it">
+<div class="azioni"><button type="submit">Salva</button>
+<button class="secondario" type="submit" formaction="/impostazioni/prova">✉️ Salva e manda un'email di prova</button></div>
+</form></div>""", s, scheda='impostazioni')
+
+    def salva_impostazioni(self, s, dati):
+        try:
+            avvisi.salva_smtp(dati)
+        except ValueError as ex:
+            return self.pagina_impostazioni(s, e(str(ex)), 'errore', dati)
+        self.vai('/impostazioni?' + urlencode({'msg': "Email dell'amministratore salvata."}))
+
+    def prova_invio(self, s, dati):
+        try:
+            conf = avvisi.salva_smtp(dati)
+            avvisi.invia('PiGreco Posta: email di prova',
+                         "Questa è un'email di prova di PiGreco Posta (Gestione caselle › Impostazioni).\n\n"
+                         'Se la ricevi, gli avvisi delle copie di backup arriveranno a questo indirizzo.\n', conf)
+        except ValueError as ex:
+            return self.pagina_impostazioni(s, e(str(ex)), 'errore', dati)
+        except RuntimeError as ex:
+            motivo = str(ex).replace('Invio non riuscito: ', '')
+            return self.vai('/impostazioni?' + urlencode({'msg': f"Impostazioni salvate, ma l'email di prova non è partita: {motivo}",
+                                                          'tipo': 'errore'}))
+        self.vai('/impostazioni?' + urlencode({'msg': f"Email di prova mandata a {', '.join(conf['destinatari'])}: controlla la posta."}))
 
 
 if __name__ == '__main__':

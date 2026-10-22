@@ -59,7 +59,7 @@ RUN groupadd -g 5000 vmail && useradd -u 5000 -g vmail -d /srv/posta -s /usr/sbi
     && usermod -aG vmail dovecot
 
 COPY dovecot/dovecot.conf /etc/dovecot/dovecot.conf
-COPY script/postaconf.py script/gestione.py script/copie.py script/backup.py /usr/local/lib/posta/
+COPY script/postaconf.py script/gestione.py script/copie.py script/avvisi.py script/backup.py /usr/local/lib/posta/
 COPY script/avvia.sh /usr/local/bin/avvia
 COPY script/conta-gestore.py /usr/local/bin/conta-gestore
 COPY script/genera-config.sh /usr/local/bin/genera-config

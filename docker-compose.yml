@@ -151,6 +151,14 @@ services:
   posta-gestione:
     <<: *posta
     command: gestione
+    environment:
+      - TZ=${TZ:-Europe/Rome}
+      - POSTA_NOME_SERVER=${POSTA_NOME_SERVER:-posta.locale}
+      - POSTA_INTERVALLO=${POSTA_INTERVALLO:-300}
+      - POSTA_IMAP_PORT=${POSTA_IMAP_PORT:-143}
+      - POSTA_IMAPS_PORT=${POSTA_IMAPS_PORT:-993}
+      # Solo per il foglio di ripristino (Copie di backup), che la stampa
+      - BACKUP_PASSWORD=${BACKUP_PASSWORD:-}
     ports:
       - "${POSTA_GESTIONE_PORT:-8083}:8080"
 
