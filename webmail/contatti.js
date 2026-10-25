@@ -316,10 +316,7 @@ const ContattiRubrica = {
 
     /** Aggiunge alla rubrica il mittente dell'email aperta ("Nome Cognome <indirizzo>") */
     aggiungiMittente() {
-        const testo = (document.getElementById('detailFrom')?.textContent || '').trim();
-        const m = testo.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
-        const email = (m ? m[2] : testo).trim();
-        const nome = (m ? m[1] : '').trim();
+        const { email, nome } = this.mittente(document.getElementById('detailFrom')?.textContent) || { email: '', nome: '' };
         if (!email.includes('@')) {
             showToast('Indirizzo del mittente non disponibile', 'error');
             return;
@@ -337,6 +334,7 @@ const ContattiRubrica = {
 
     CHIAVE_IGNORATI: 'webmail.contatti.ignorati',
     mittenteCorrente: '',
+    mittenteTesto: '',
     proposta: null,
 
     /** Indirizzi per cui l'utente ha risposto "No, grazie" (solo in questo browser) */
@@ -365,6 +363,18 @@ const ContattiRubrica = {
         }).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email));
     },
 
+    /**
+     * Il mittente di un'email ("Nome <indirizzo>") → { email, nome }. Nella busta
+     * di una PEC il mittente è il gestore ("Per conto di: x@y" <posta-certificata@…>):
+     * la persona da mettere in rubrica è x@y.
+     */
+    mittente(testo) {
+        const [m] = this.indirizzi(testo);
+        if (!m) return null;
+        const perConto = m.nome.match(/^per conto di:\s*([^\s<>"]+@[^\s<>"]+\.[^\s<>"]+)/i);
+        return perConto ? { email: perConto[1], nome: '' } : m;
+    },
+
     inRubrica(email) {
         const e = String(email).toLowerCase();
         return this.contatti.some(c => String(c.email || '').toLowerCase() === e);
@@ -377,11 +387,14 @@ const ContattiRubrica = {
         return new Set((testo.match(/[^\s<>,;"']+@[^\s<>,;"']+\.[A-Za-z]{2,}/g) || []).map(e => e.toLowerCase()));
     },
 
-    /** Indirizzi da non proporre: già in rubrica, propri, automatici o rifiutati */
+    /**
+     * Indirizzi da non proporre: già in rubrica, propri, automatici o rifiutati.
+     * posta-certificata@… è il gestore PEC (buste e ricevute), mai una persona.
+     */
     daProporre(email) {
         const e = String(email).toLowerCase();
         return !this.inRubrica(e) && !this.mieiIndirizzi().has(e) && !this.ignorati().has(e) &&
-            !/^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|bounces?)([+._-]|@)/.test(e);
+            !/^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|bounces?|posta-certificata)([+._-]|@)/.test(e);
     },
 
     /** Nome e cognome proposti: dal nome visualizzato o dalla parte prima della @ */
@@ -404,8 +417,9 @@ const ContattiRubrica = {
         const riga = document.getElementById('bannerContatto');
         if (!riga) return;
         riga.hidden = true;
-        const [mittente] = this.indirizzi(da);
+        const mittente = this.mittente(da);
         this.mittenteCorrente = mittente ? mittente.email : '';
+        this.mittenteTesto = mittente && mittente.nome ? `${mittente.nome} <${mittente.email}>` : this.mittenteCorrente;
         if (!mittente || !this.disponibile() || !(await this.suggerimentiPronti())) return;
         this.aggiornaBanner();
     },
@@ -418,7 +432,7 @@ const ContattiRubrica = {
             riga.hidden = true;
             return;
         }
-        const testo = (document.getElementById('detailFrom')?.textContent || email).trim();
+        const testo = this.mittenteTesto || email;
         riga.innerHTML = `
             <i class="fas fa-user-plus"></i>
             <span><strong>${this.esc(testo)}</strong> non è nei contatti</span>
