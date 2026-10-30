@@ -394,7 +394,7 @@ const ArchiviaEmail = {
                     <select id="archiviaTipologia" ${a.gia_archiviata ? 'disabled' : ''}>${this.opzioniTipologie(tipologiaEmail)}</select>
                 </label>
                 <label class="archivia-check">
-                    <input type="checkbox" id="archiviaCreaCartellina" checked ${a.gia_archiviata ? 'disabled' : ''}>
+                    <input type="checkbox" id="archiviaCreaCartellina" ${this.creaCartellinaRicordata() ? 'checked' : ''} ${a.gia_archiviata ? 'disabled' : ''}>
                     Crea una cartellina con l'oggetto (solo se archivi degli allegati)
                 </label>
             </div>
@@ -436,6 +436,15 @@ const ArchiviaEmail = {
         try { p = JSON.parse(localStorage.getItem(this.chiaveUltimaPosizione()) || 'null'); } catch (e) { /* niente */ }
         if (!p || !p.faldone_id || !this.trovaFaldone(p.faldone_id)) return null;
         return p;
+    },
+
+    /** La spunta "Crea una cartellina con l'oggetto" dell'ultima archiviazione (di partenza: sì) */
+    creaCartellinaRicordata() {
+        try {
+            return localStorage.getItem('archivia.creaCartellina.' + (this.utente && this.utente.id ? this.utente.id : '')) !== '0';
+        } catch (e) {
+            return true;
+        }
     },
 
     /** Ricorda la posizione appena usata (col percorso leggibile mostrato nella finestra) */
@@ -676,6 +685,10 @@ const ArchiviaEmail = {
             fd.append('opzioni', JSON.stringify(opzioni));
             const r = (await this.api('/email/archivia', { method: 'POST', body: fd })).data;
             this.ricordaPosizione(dest);
+            try {
+                localStorage.setItem('archivia.creaCartellina.' + (this.utente && this.utente.id ? this.utente.id : ''),
+                    opzioni.crea_cartellina ? '1' : '0');
+            } catch (e) { /* localStorage non disponibile: pazienza */ }
             const allegatiTesto = r.allegati.length
                 ? '<ul>' + r.allegati.map(al => `<li>${escArchivio(al.nome)} → ${escArchivio(al.matricola)}${al.riusato ? ' (già in archivio, collegato)' : ''}</li>`).join('') + '</ul>'
                 : '';

@@ -1004,7 +1004,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
 
     <!-- Editor HTML per email -->
     <script src="email_editor.js"></script>
-    <script src="archivio.js?v=2.3"></script>
+    <script src="archivio.js?v=2.4"></script>
     <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
     <script src="contatti.js?v=2"></script>
     <script src="selezione.js?v=3"></script>
