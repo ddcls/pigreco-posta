@@ -486,12 +486,15 @@ const ArchiviaEmail = {
 
         this.riempi(q('archiviaStanza'), this.stanze, '— scegli la stanza —');
         this.scegliStanza();
-        // Con una sola posizione suggerita (stessa conversazione) la preseleziona,
-        // altrimenti riparte dall'ultima usata: più email di fila nello stesso faldone
-        if (suggerite.length === 1) {
-            this.selezionaFaldone(suggerite[0].faldone_id, suggerite[0].cartellina_id);
-        } else if (ultima) {
+        // L'ultima posizione usata vince se è nello stesso faldone della conversazione
+        // (è più precisa: la cartellina scelta da poco) o se non c'è una conversazione
+        // con un solo posto; altrimenti la conversazione. Più email di fila nella stessa
+        // cartellina senza rifare la scelta.
+        const ultimaNelFaldone = ultima && suggerite.some(p => Number(p.faldone_id) === Number(ultima.faldone_id));
+        if (ultima && (ultimaNelFaldone || suggerite.length !== 1)) {
             this.selezionaFaldone(ultima.faldone_id, ultima.cartellina_id);
+        } else if (suggerite.length === 1) {
+            this.selezionaFaldone(suggerite[0].faldone_id, suggerite[0].cartellina_id);
         }
     },
 
