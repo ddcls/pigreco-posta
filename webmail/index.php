@@ -404,6 +404,15 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                         <input type="text" id="searchQuery" placeholder="Inserisci il testo da cercare..." 
                                onkeypress="handleSearchKeyPress(event)">
                     </div>
+
+                    <div class="search-field">
+                        <label for="searchPersona">
+                            <i class="fas fa-user-tag"></i> <span id="searchPersonaEtichetta">Solo le email di (mittente):</span>
+                        </label>
+                        <input type="text" id="searchPersona" list="searchPersonaElenco" autocomplete="off"
+                               placeholder="es. AMA condomini, oppure lascia vuoto" onkeypress="handleSearchKeyPress(event)">
+                        <datalist id="searchPersonaElenco"></datalist>
+                    </div>
                     
                     <div class="search-field">
                         <label for="searchDove">
@@ -999,7 +1008,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
     <script src="contatti.js?v=2"></script>
     <script src="selezione.js?v=3"></script>
-    <script src="ricerca.js?v=1"></script>
+    <script src="ricerca.js?v=2"></script>
     <script src="bozze.js?v=1"></script>
     <script src="cartelle.js?v=1"></script>
     <script src="filtri.js?v=1"></script>
@@ -2499,7 +2508,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                         popupSearchInput.value = event.target.value.trim();
                     }
                     openSearchDialog();
-                } else if (event.target.id === 'searchQuery') {
+                } else if (event.target.id === 'searchQuery' || event.target.id === 'searchPersona') {
                     executeSearch();
                 }
             }

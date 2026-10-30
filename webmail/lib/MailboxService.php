@@ -471,13 +471,19 @@ class MailboxService {
     /** Cercando in tutte le cartelle: al massimo questi risultati per cartella. */
     const MAX_RISULTATI_CARTELLA = 1000;
 
+    /** Cartelle della posta in uscita: lì la "persona" è il destinatario, altrove il mittente. */
+    const CARTELLE_USCITA = ['sent', 'draft'];
+
     /**
      * Criterio IMAP SEARCH: il testo in uno dei campi scelti (OR), più
-     * eventualmente FLAGGED. @return array [criterio, serve CHARSET UTF-8]
+     * eventualmente FLAGGED e la persona (mittente, o destinatario nelle
+     * cartelle in uscita), tutti insieme (AND).
+     * @return array [criterio, serve CHARSET UTF-8]
      */
-    private function searchCriteria($testo, array $campi, $soloImportanti) {
+    private function searchCriteria($testo, array $campi, $soloImportanti, $persona = '', $uscita = false) {
         $termini = [];
         $testo = trim((string)$testo);
+        $persona = trim((string)$persona);
         if ($testo !== '') {
             $valore = $this->imap()->quote($testo);
             foreach ($campi as $campo) {
@@ -494,13 +500,17 @@ class MailboxService {
         while ($termini) {
             $criterio = 'OR ' . array_pop($termini) . ' ' . $criterio;
         }
+        if ($persona !== '') {
+            $chi = $this->imap()->quote($persona);
+            $criterio = trim(($uscita ? "OR TO {$chi} CC {$chi}" : "FROM {$chi}") . ' ' . $criterio);
+        }
         if ($soloImportanti) {
             $criterio = trim('FLAGGED ' . $criterio);
         }
         if ($criterio === '') {
             throw new Exception('Scrivi il testo da cercare');
         }
-        $utf8 = (bool)preg_match('/[\x80-\xFF]/', $testo);
+        $utf8 = (bool)preg_match('/[\x80-\xFF]/', $testo . $persona);
         return [($utf8 ? 'CHARSET UTF-8 ' : '') . $criterio, $utf8];
     }
 
@@ -511,8 +521,9 @@ class MailboxService {
      *               'total_pages', 'limit', 'troncata' => true se in qualche
      *               cartella si sono tenuti solo i risultati più recenti]
      */
-    public function search($logical, $testo, array $campi, $soloImportanti, $page, $limit) {
-        [$criterio] = $this->searchCriteria($testo, $campi, $soloImportanti);
+    public function search($logical, $testo, array $campi, $soloImportanti, $page, $limit, $persona = '') {
+        // Controlla subito i parametri (anche se poi nessuna cartella si apre)
+        $this->searchCriteria($testo, $campi, $soloImportanti, $persona);
         $cartelle = $logical !== null ? [$logical] : $this->searchableFolders();
         $trovate = [];      // [cartella, uid, momento]
         $troncata = false;
@@ -523,6 +534,8 @@ class MailboxService {
                 }
                 continue;
             }
+            [$criterio] = $this->searchCriteria($testo, $campi, $soloImportanti, $persona,
+                in_array($cartella, self::CARTELLE_USCITA, true));
             $uids = $this->imap()->uidSearch($criterio);
             if (count($uids) > self::MAX_RISULTATI_CARTELLA && $logical === null) {
                 sort($uids);

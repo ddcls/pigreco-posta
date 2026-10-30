@@ -27,7 +27,9 @@
  * Parametri POST:
  *   account_id (o "user"),
  *   folder      cartella (logica o "imap:<nome>") oppure "tutte",
- *   q           testo da cercare (può mancare con solo_importanti=1),
+ *   q           testo da cercare (può mancare con persona o solo_importanti=1),
+ *   persona     mittente (nelle cartelle in uscita: destinatario) che deve
+ *               contenere questo testo, insieme a q,
  *   campi       mittente,destinatari,oggetto,corpo (separati da virgola),
  *   solo_importanti 1 = solo le email con la stella,
  *   page, limit (limit 0 = tutti).
@@ -50,6 +52,7 @@ try {
     $accountParam = requestParam(['account_id', 'user']);
     $folder = requestParam(['folder'], 'inbox');
     $testo = (string)($_POST['q'] ?? '');
+    $persona = (string)($_POST['persona'] ?? '');
     $campi = array_values(array_intersect(array_keys(MailboxService::CAMPI_RICERCA),
         array_map('trim', explode(',', requestParam(['campi'], 'mittente,destinatari,oggetto')))));
     $soloImportanti = requestParam(['solo_importanti']) === '1';
@@ -64,7 +67,7 @@ try {
         http_response_code(400);
         throw new Exception('Cartella non valida');
     }
-    if (mb_strlen($testo) > 200) {
+    if (mb_strlen($testo) > 200 || mb_strlen($persona) > 200) {
         http_response_code(400);
         throw new Exception('Testo da cercare troppo lungo');
     }
@@ -75,7 +78,7 @@ try {
         throw new Exception('Account non valido o non autorizzato');
     }
 
-    $result = $mailbox->search($folder === 'tutte' ? null : $folder, $testo, $campi, $soloImportanti, $page, $limit);
+    $result = $mailbox->search($folder === 'tutte' ? null : $folder, $testo, $campi, $soloImportanti, $page, $limit, $persona);
     $mailbox->close();
 
     echo json_encode($result, JSON_UNESCAPED_UNICODE);

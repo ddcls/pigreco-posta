@@ -28,6 +28,10 @@
  * stelle, trascinamento, apertura) e, cercando dappertutto, il nome della
  * cartella. "Altri risultati" in fondo carica la pagina successiva.
  *
+ * "Solo le email di": il mittente (nella posta inviata e nelle bozze il
+ * destinatario) deve contenere quel testo, insieme al testo da cercare;
+ * es. l'oggetto "assemblea" solo nelle email di AMA condomini.
+ *
  * La finestra "Ricerca Email" di index.php resta quella: executeSearch()
  * chiama RicercaEmail.cerca(). Ogni loadEmails() (cambio cartella, account,
  * pagina) chiude la ricerca.
@@ -35,7 +39,7 @@
 
 const RicercaEmail = {
     attiva: false,
-    parametri: null,    // {q, dove, campi, soloImportanti}
+    parametri: null,    // {q, persona, dove, campi, soloImportanti, cartella}
     pagina: 0,
     totale: 0,
     turno: 0,           // per ignorare risposte di ricerche superate
@@ -49,6 +53,48 @@ const RicercaEmail = {
                 return originale.apply(this, argomenti);
             };
         }
+        // All'apertura della finestra: etichetta e proposte del campo "Solo le email di"
+        if (typeof openSearchDialog === 'function') {
+            const originale = openSearchDialog;
+            window.openSearchDialog = function (...argomenti) {
+                RicercaEmail.preparaPersona();
+                return originale.apply(this, argomenti);
+            };
+        }
+        document.getElementById('searchDove')?.addEventListener('change', () => this.preparaPersona());
+    },
+
+    /** Posta inviata e bozze: la persona è il destinatario */
+    inUscita(cartella) {
+        return cartella === 'sent' || cartella === 'draft';
+    },
+
+    /** Etichetta secondo la cartella aperta, proposte dalle email dell'elenco */
+    preparaPersona() {
+        const etichetta = document.getElementById('searchPersonaEtichetta');
+        const elenco = document.getElementById('searchPersonaElenco');
+        if (!etichetta || !elenco) return;
+        const tutte = document.getElementById('searchDove')?.value === 'tutte';
+        const uscita = this.inUscita(currentFolder);
+        etichetta.textContent = tutte
+            ? 'Solo le email di (mittente, o destinatario nella posta inviata):'
+            : (uscita ? 'Solo le email inviate a (destinatario):' : 'Solo le email di (mittente):');
+
+        const visti = new Set();
+        const voci = [];
+        (typeof currentEmails !== 'undefined' ? currentEmails : []).forEach(e => {
+            // Solo i destinatari possono essere più d'uno (un nome "Rossi, Mario" non si spezza)
+            const testo = String((uscita ? e.recipient : e.sender) || '');
+            (uscita ? testo.split(/(?<=>|@[\w.-]+)\s*[,;]/) : [testo]).forEach(chi => {
+                chi = chi.trim();
+                if (chi && !visti.has(chi.toLowerCase())) {
+                    visti.add(chi.toLowerCase());
+                    voci.push(chi);
+                }
+            });
+        });
+        voci.sort((a, b) => a.localeCompare(b, 'it'));
+        elenco.innerHTML = voci.map(v => `<option value="${escapeHtmlAttr(v)}"></option>`).join('');
     },
 
     account() {
@@ -64,6 +110,7 @@ const RicercaEmail = {
     /** Dalla finestra "Ricerca Email" (executeSearch). */
     cerca() {
         const q = (document.getElementById('searchQuery')?.value || '').trim();
+        const persona = this.pulisciPersona(document.getElementById('searchPersona')?.value || '');
         const campi = [];
         if (document.getElementById('searchEmail')?.checked) campi.push('mittente', 'destinatari');
         if (document.getElementById('searchSubject')?.checked) campi.push('oggetto');
@@ -75,20 +122,31 @@ const RicercaEmail = {
             showToast('Scegli prima un account', 'error');
             return;
         }
-        if (!q && !soloImportanti) {
-            showToast('Scrivi il testo da cercare', 'error');
+        if (!q && !persona && !soloImportanti) {
+            showToast('Scrivi il testo da cercare o di chi sono le email', 'error');
             return;
         }
         if (q && !campi.length) {
             showToast('Scegli almeno un campo in cui cercare', 'error');
             return;
         }
-        this.parametri = { q, campi, soloImportanti, dove, cartella: currentFolder };
+        this.parametri = { q, persona, campi, soloImportanti, dove, cartella: currentFolder };
         closeSearchDialog();
         document.getElementById('searchInput').value = q;
         this.attiva = true;
         this.pagina = 0;
         this.carica(false);
+    },
+
+    /**
+     * Dalla proposta "Mario Rossi <mario@x.it>" tiene l'indirizzo: il server
+     * di posta cerca il testo così com'è nell'intestazione, e nome e
+     * indirizzo insieme non vi compaiono sempre scritti allo stesso modo.
+     */
+    pulisciPersona(testo) {
+        testo = testo.trim();
+        const indirizzo = testo.match(/<([^<>\s]+@[^<>\s]+)>\s*$/);
+        return indirizzo ? indirizzo[1] : testo;
     },
 
     /** Dopo spostamenti/cancellazioni: stessa ricerca, quante righe c'erano. */
@@ -129,6 +187,7 @@ const RicercaEmail = {
                 user: this.account(),
                 folder: p.dove === 'tutte' ? 'tutte' : p.cartella,
                 q: p.q,
+                persona: p.persona,
                 campi: p.campi.join(','),
                 solo_importanti: p.soloImportanti ? '1' : '',
                 page: String(this.pagina + 1),
@@ -167,7 +226,9 @@ const RicercaEmail = {
             elenco.querySelector('[data-azione="altri"]')?.addEventListener('click', () => this.carica(true));
 
             const dove = p.dove === 'tutte' ? 'in tutte le cartelle' : `in ${nomeCartella(p.cartella)}`;
-            const cosa = [p.q ? `«${p.q}»` : '', p.soloImportanti ? '⭐ importanti' : ''].filter(Boolean).join(' · ');
+            const chi = !p.persona ? ''
+                : (p.dove !== 'tutte' && this.inUscita(p.cartella) ? 'a ' : 'di ') + `«${p.persona}»`;
+            const cosa = [p.q ? `«${p.q}»` : '', chi, p.soloImportanti ? '⭐ importanti' : ''].filter(Boolean).join(' · ');
             conteggio.innerHTML = `<span class="elenco-cartella" title="${escapeHtmlAttr(cosa + ' ' + dove)}">Ricerca: ${escapeHtml(cosa)}</span>`
                 + `<span class="elenco-totale">${this.totale.toLocaleString('it-IT')} ${this.totale === 1 ? 'trovata' : 'trovate'} ${escapeHtml(dove)}`
                 + `${data.troncata ? ' (le più recenti)' : ''} · <button type="button" class="ricerca-annulla" title="Torna all'elenco">✕ Annulla</button></span>`;
