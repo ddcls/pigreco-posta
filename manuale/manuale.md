@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.3 · ottobre 2026
+Versione 1.4 · ottobre 2026
 
 PiGreco Posta fa due cose:
 
@@ -313,7 +313,12 @@ telefono e gli altri programmi di posta.
 2. In **Dove cercare** scegli **Nella cartella aperta** oppure **In tutte le cartelle**.
 3. Spunta dove cercare la parola: **Mittente e destinatari**, **Oggetto**, **Testo
    dell'email**. Con **Solo email importanti** vedi solo quelle con la stella.
-4. Premi **Cerca**.
+4. Se vuoi, in **Solo le email di** scrivi il mittente (anche solo un pezzo del nome o
+   dell'indirizzo; mentre scrivi la webmail propone quelli dell'elenco). Nella **Posta inviata** e
+   nelle **Bozze** il campo diventa **Solo le email inviate a**, cioè il destinatario. Vale
+   insieme alla parola: per esempio *assemblea* nell'**Oggetto** solo nelle email di *AMA
+   condomini*. Si può anche lasciare vuota la parola e cercare solo per mittente.
+5. Premi **Cerca**.
 
 La ricerca guarda **tutte** le email della cartella (o di tutte le cartelle), non solo quelle
 della pagina; maiuscole e minuscole non contano. Cercare nel testo è più lento. **✕ Annulla** in
@@ -580,7 +585,10 @@ Dall'archivio la webmail si apre con il pulsante **📧 Posta**, all'indirizzo
 `http://<ip-server>:8081/webmail/`. Aperta da lì, nella webmail compaiono:
 
 - il pulsante **Archivia**: l'email e i suoi allegati entrano nell'archivio con un clic, nel
-  faldone che scegli;
+  faldone che scegli; per l'email successiva la finestra ripropone la stessa posizione
+  (faldone e cartellina, pulsante **Come l'ultima volta**) e la stessa scelta su **Crea una
+  cartellina con l'oggetto**, così più email di fila vanno nello stesso posto senza rifare la
+  scelta;
 - la **rubrica** dei contatti in comune con l'archivio, con i suggerimenti mentre scrivi;
 - dall'archivio, l'invio dei documenti **dalla tua casella**, con la copia in Inviata.
 

@@ -49,7 +49,7 @@ import postaconf as pc  # noqa: E402
 
 # Versione e codice sorgente (la stessa versione è in webmail/lib/info.php):
 # la AGPL chiede di mostrare copyright, licenza e dove trovare il sorgente
-VERSIONE = '1.3'
+VERSIONE = '1.4'
 SORGENTE = 'https://github.com/ddcls/pigreco-posta'
 
 PORTA = int(os.environ.get('POSTA_GESTIONE_PORTA_INTERNA', '8080'))
