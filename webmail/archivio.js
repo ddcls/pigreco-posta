@@ -321,6 +321,13 @@ const ArchiviaEmail = {
                 </div>`;
         }
 
+        const ultima = this.ultimaPosizione();
+        const ultimaHtml = ultima ? `
+            <div class="archivia-suggerite"><span>Come l'ultima volta:</span><div>
+                <button type="button" class="archivia-suggerimento" data-azione="ultima-posizione" title="L'ultima posizione in cui hai archiviato un'email">
+                    <i class="fas fa-history"></i> ${escArchivio(ultima.percorso)}
+                </button></div></div>` : '';
+
         const suggerite = (a.posizioni_suggerite || []).map((p, i) => `
             <button type="button" class="archivia-suggerimento" data-indice="${i}" title="${escArchivio(p.motivo)}">
                 <i class="fas fa-folder-open"></i> ${posizione(p)}
@@ -353,6 +360,7 @@ const ArchiviaEmail = {
             <fieldset class="archivia-sezione archivia-dove">
                 <legend><i class="fas fa-map-marker-alt"></i> Dove archiviare l'email</legend>
                 ${suggerite ? `<div class="archivia-suggerite"><span>Stessa conversazione già archiviata in:</span><div>${suggerite}</div></div>` : ''}
+                ${ultimaHtml}
                 <div class="archivia-griglia">
                     <label ${this.stanze.length > 1 ? '' : 'hidden'}>Stanza
                         <select id="archiviaStanza"></select>
@@ -412,7 +420,34 @@ const ArchiviaEmail = {
         const aggiungi = this.piede().querySelector('[data-azione="posizione"]');
         if (aggiungi) aggiungi.addEventListener('click', () => this.aggiungiPosizione(aggiungi));
 
-        this.preparaPosizione(a.posizioni_suggerite || []);
+        this.preparaPosizione(a.posizioni_suggerite || [], ultima);
+    },
+
+    // ---------------------------------------------------------------- ultima posizione
+
+    /** Una per utente dell'archivio: sullo stesso PC possono lavorare più persone */
+    chiaveUltimaPosizione() {
+        return 'archivia.ultimaPosizione.' + (this.utente && this.utente.id ? this.utente.id : '');
+    },
+
+    /** L'ultima posizione usata, se il faldone esiste ancora ed è visibile: {faldone_id, cartellina_id, percorso} */
+    ultimaPosizione() {
+        let p = null;
+        try { p = JSON.parse(localStorage.getItem(this.chiaveUltimaPosizione()) || 'null'); } catch (e) { /* niente */ }
+        if (!p || !p.faldone_id || !this.trovaFaldone(p.faldone_id)) return null;
+        return p;
+    },
+
+    /** Ricorda la posizione appena usata (col percorso leggibile mostrato nella finestra) */
+    ricordaPosizione(dest) {
+        const percorso = this.overlay.querySelector('#archiviaPercorso').textContent.trim();
+        try {
+            localStorage.setItem(this.chiaveUltimaPosizione(), JSON.stringify({
+                faldone_id: Number(dest.faldone_id),
+                cartellina_id: dest.cartellina_id ? Number(dest.cartellina_id) : null,
+                percorso,
+            }));
+        } catch (e) { /* localStorage non disponibile: pazienza */ }
     },
 
     // ---------------------------------------------------------------- posizione
@@ -422,7 +457,7 @@ const ArchiviaEmail = {
      * Il faldone è obbligatorio: senza, l'email resterebbe fuori dall'ufficio
      * (documento senza posizione) e non si ritroverebbe negli armadi.
      */
-    preparaPosizione(suggerite) {
+    preparaPosizione(suggerite, ultima = null) {
         const q = (id) => this.overlay.querySelector('#' + id);
         q('archiviaStanza').addEventListener('change', () => this.scegliStanza());
         q('archiviaArmadio').addEventListener('change', () => this.scegliArmadio());
@@ -444,12 +479,19 @@ const ArchiviaEmail = {
             const p = suggerite[Number(b.dataset.indice)];
             this.selezionaFaldone(p.faldone_id, p.cartellina_id);
         }));
+        const bottoneUltima = this.corpo().querySelector('[data-azione="ultima-posizione"]');
+        if (bottoneUltima) {
+            bottoneUltima.addEventListener('click', () => this.selezionaFaldone(ultima.faldone_id, ultima.cartellina_id));
+        }
 
         this.riempi(q('archiviaStanza'), this.stanze, '— scegli la stanza —');
         this.scegliStanza();
-        // Con una sola posizione suggerita la preseleziona
+        // Con una sola posizione suggerita (stessa conversazione) la preseleziona,
+        // altrimenti riparte dall'ultima usata: più email di fila nello stesso faldone
         if (suggerite.length === 1) {
             this.selezionaFaldone(suggerite[0].faldone_id, suggerite[0].cartellina_id);
+        } else if (ultima) {
+            this.selezionaFaldone(ultima.faldone_id, ultima.cartellina_id);
         }
     },
 
@@ -630,6 +672,7 @@ const ArchiviaEmail = {
             fd.append('eml', this.eml, 'email.eml');
             fd.append('opzioni', JSON.stringify(opzioni));
             const r = (await this.api('/email/archivia', { method: 'POST', body: fd })).data;
+            this.ricordaPosizione(dest);
             const allegatiTesto = r.allegati.length
                 ? '<ul>' + r.allegati.map(al => `<li>${escArchivio(al.nome)} → ${escArchivio(al.matricola)}${al.riusato ? ' (già in archivio, collegato)' : ''}</li>`).join('') + '</ul>'
                 : '';
@@ -675,6 +718,7 @@ const ArchiviaEmail = {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ faldone_id: Number(dest.faldone_id) }),
                 });
+            this.ricordaPosizione(dest);
             showToast(r.message || 'Posizione aggiunta', 'success');
             this.chiudi();
         } catch (e) {
