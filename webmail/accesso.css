@@ -1,0 +1,132 @@
+/*
+ * PiGreco Posta
+ * Copyright (C) 2026 Criscione Enzo
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Questo programma è software libero: puoi ridistribuirlo e/o modificarlo
+ * secondo i termini della GNU Affero General Public License come pubblicata
+ * dalla Free Software Foundation, versione 3 della licenza o (a tua scelta)
+ * qualsiasi versione successiva.
+ *
+ * Questo programma è distribuito nella speranza che sia utile, ma SENZA
+ * ALCUNA GARANZIA; senza neppure la garanzia implicita di COMMERCIABILITÀ
+ * o di IDONEITÀ PER UN PARTICOLARE SCOPO. Vedi la GNU Affero General
+ * Public License per i dettagli.
+ *
+ * Dovresti aver ricevuto una copia della GNU Affero General Public License
+ * insieme a questo programma (file LICENSE). In caso contrario, vedi
+ * <https://www.gnu.org/licenses/>.
+ */
+
+/* Pagine di accesso: login.php e totp.php (colori da temi.css) */
+/* Colori da temi.css: il tema è quello predefinito scelto dall'amministratore */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--font-testo);
+    font-size: 14px;
+    color: var(--testo);
+    background: var(--pannello);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.login-barra {
+    height: 54px;
+    background: linear-gradient(180deg, var(--accento) 0%, var(--accento-scuro) 100%);
+}
+.login-pagina {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 24px 16px;
+}
+.login-container {
+    background: var(--bianco);
+    border: 1px solid var(--bordo);
+    border-radius: 10px;
+    box-shadow: var(--ombra);
+    width: 100%;
+    max-width: 400px;
+    overflow: hidden;
+}
+.login-header {
+    padding: 28px 32px 8px;
+    text-align: center;
+}
+.login-header h1 {
+    font-family: var(--font-titoli);
+    font-size: 26px;
+    color: var(--testo);
+    margin-bottom: 6px;
+}
+.login-header h1 i { color: var(--accento); margin-right: 4px; }
+.login-header p { color: var(--testo-tenue); }
+.login-corpo { padding: 18px 32px 26px; }
+.form-group { margin-bottom: 16px; }
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--testo-secondario);
+}
+.form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    font: inherit;
+    color: var(--testo);
+}
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accento);
+    box-shadow: 0 0 0 3px var(--selezione);
+}
+.btn-login {
+    width: 100%;
+    padding: 11px;
+    margin-top: 4px;
+    background: var(--accento);
+    color: #fff;
+    border: 0;
+    border-radius: var(--raggio);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+}
+.btn-login:hover { background: var(--accento-scuro); }
+.btn-login:disabled { opacity: .7; cursor: wait; }
+.alert {
+    padding: 10px 12px;
+    border-radius: var(--raggio);
+    margin-bottom: 16px;
+}
+.alert-error {
+    background: var(--pericolo-chiaro);
+    color: var(--pericolo);
+    border-left: 3px solid var(--pericolo);
+}
+.login-piede a { color: inherit; }
+.login-piede {
+    padding: 12px;
+    border-top: 1px solid var(--bordo);
+    background: var(--sfondo);
+    text-align: center;
+    color: var(--testo-tenue);
+    font-size: 12px;
+}
+
+/* Secondo fattore (totp.php) */
+.totp-qr { display: flex; justify-content: center; margin: 6px 0 12px; }
+.totp-qr svg, .totp-qr img { width: 200px; height: 200px; background: #fff; padding: 8px; border: 1px solid var(--bordo); border-radius: var(--raggio); }
+.totp-passi { margin: 0 0 14px 18px; color: var(--testo-secondario); line-height: 1.5; }
+.totp-chiave { font-family: monospace; font-size: 15px; letter-spacing: 1px; word-break: break-all;
+    background: var(--sfondo); border: 1px dashed var(--bordo); border-radius: var(--raggio); padding: 8px; text-align: center; }
+.totp-app { display: block; text-align: center; margin: 8px 0 14px; color: var(--accento); font-weight: 700; }
+.form-group input.totp-codice { font-size: 24px; letter-spacing: 8px; text-align: center; }
+.form-check { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; color: var(--testo-secondario); }
+.form-check input { width: auto; }
+.login-annulla { display: block; text-align: center; margin-top: 12px; color: var(--testo-tenue); }

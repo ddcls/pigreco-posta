@@ -32,6 +32,7 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
 require_once __DIR__ . '/../check_auth.php';
+require_once __DIR__ . '/../lib/totp.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -61,12 +62,14 @@ class UserAccountManager {
 
     public function listUsers() {
         $result = $this->conn->query(
-            "SELECT id, nome, cognome, username, email, attivo, tipo_user, ultimo_accesso, created_at
+            "SELECT id, nome, cognome, username, email, attivo, tipo_user, ultimo_accesso, created_at,
+                    totp_segreto IS NOT NULL AS totp_attivo, totp_attivo_dal
              FROM users ORDER BY username ASC"
         );
         $users = [];
         while ($row = $result->fetch_assoc()) {
             $row['attivo'] = (bool)$row['attivo'];
+            $row['totp_attivo'] = (bool)$row['totp_attivo'];
             $users[] = $row;
         }
         return $users;
@@ -192,8 +195,23 @@ class UserAccountManager {
         if ($stmt->affected_rows === 0) {
             return ['success' => false, 'error' => 'Account non trovato'];
         }
+        // Password nuova: i dispositivi ricordati devono rifare il codice
+        dimenticaDispositivi($this->conn, $id);
 
         return ['success' => true, 'message' => 'Password aggiornata con successo'];
+    }
+
+    /** Telefono perso o cambiato: al prossimo accesso da fuori ricompare il QR. */
+    public function resetTotp($id) {
+        $id = intval($id);
+        if ($id <= 0) {
+            return ['success' => false, 'error' => 'Account non specificato'];
+        }
+        if (!totpAzzera($this->conn, $id)) {
+            return ['success' => false, 'error' => 'Account non trovato'];
+        }
+        return ['success' => true, 'message' => 'Secondo fattore azzerato: al prossimo accesso da fuori ufficio '
+            . 'l\'utente inquadrerà un nuovo QR'];
     }
 
     public function deleteUser($id) {
@@ -259,6 +277,10 @@ try {
             $password = $_POST['password'] ?? '';
             $result = $manager->setPassword($id, $password);
             echo json_encode($result, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'reset_totp':
+            echo json_encode($manager->resetTotp($_POST['id'] ?? 0), JSON_UNESCAPED_UNICODE);
             break;
 
         case 'delete':

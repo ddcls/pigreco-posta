@@ -1039,7 +1039,10 @@ restic -r &lt;disco&gt;/{copie.CARTELLA_COPIE} restore latest --tag caselle --ta
 restic -r &lt;disco&gt;/{copie.CARTELLA_COPIE} dump latest --tag database /webmail.sql &gt; webmail.sql</pre>
 <p class="tenue">Ogni copia ha due parti con la stessa data: i database della webmail (tag "database", dump fatto
 con mysqldump di MariaDB, senza gli utenti di MySQL) e le caselle (/srv/posta senza i file di MySQL) più il .env con la
-chiave che cifra le password delle caselle (tag "caselle").</p>
+chiave che cifra le password delle caselle (tag "caselle"). Se sul server ci sono altre cartelle da copiare (montate
+in /backup-altre, per esempio i dati di cipesweb8) ogni copia ha anche la parte "altre", che il ripristino della posta
+non tocca: si rimette a mano con<br><code>restic -r &lt;disco&gt;/{copie.CARTELLA_COPIE} restore latest --tag altre-&lt;nome&gt;
+--target /tmp/ripristino</code></p>
 <div class="azioni non-stampare"><button type="button" onclick="window.print()">🖨️ Stampa</button>
 <span class="tenue">Dopo averlo stampato chiudi questa scheda.</span></div></div>""", s, scheda='copie')
 

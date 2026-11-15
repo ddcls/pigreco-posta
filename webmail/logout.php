@@ -40,7 +40,7 @@ $_SESSION = array();
 
 // Distrugge il cookie di sessione se esiste
 if (isset($_COOKIE[session_name()])) {
-    setcookie(session_name(), '', time() - 3600, '/');
+    setcookie(session_name(), '', time() - 3600, percorsoCookie());
 }
 
 // Distrugge la sessione

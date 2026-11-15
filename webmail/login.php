@@ -28,8 +28,13 @@ require_once __DIR__ . '/lib/session.php';
 avviaSessione();
 require_once __DIR__ . '/lib/tema.php';
 require_once __DIR__ . '/lib/info.php';
+require_once __DIR__ . '/lib/accesso.php';
+require_once __DIR__ . '/lib/totp.php';
 // Messaggio di logout
 $logoutMessage = '';
+if (isset($_GET['totp_scaduto'])) {
+    $error = 'Tempo scaduto per il codice di verifica: rientra con la password';
+}
 if (isset($_GET['logged_out'])) {
     $logoutMessage = 'Logout effettuato con successo. Torna presto!';
 }
@@ -41,39 +46,8 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     exit;
 }
 
-$error = '';
+$error = $error ?? '';
 $success = '';
-
-/**
- * Freno ai tentativi a caso (access_log, scritto da logAccess): login rifiutato
- * dopo 10 accessi falliti in 15 minuti dallo stesso indirizzo IP, o dopo 30
- * sullo stesso utente da indirizzi diversi. Soglia per utente più alta: chi
- * sbaglia apposta non deve poter chiudere fuori il vero utente. I tentativi
- * rifiutati ("blocked") non allungano il blocco.
- */
-function troppiTentativiFalliti($username) {
-    require_once __DIR__ . '/config/db_config.php';
-    $conn = getDBConnection();
-    if (!$conn) {
-        return false;
-    }
-    $ip = substr($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0', 0, 45);
-    $utente = substr($username, 0, 50);
-    $stmt = $conn->prepare("SELECT
-            SUM(ip_address = ?) AS da_ip,
-            SUM(username = ?) AS su_utente
-        FROM access_log
-        WHERE success = 0 AND action LIKE 'failed%'
-          AND attempt_time > NOW() - INTERVAL 15 MINUTE");
-    if (!$stmt) {
-        return false;
-    }
-    $stmt->bind_param('ss', $ip, $utente);
-    $stmt->execute();
-    $riga = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-    return (int)($riga['da_ip'] ?? 0) >= 10 || (int)($riga['su_utente'] ?? 0) >= 30;
-}
 
 // Gestione POST login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -113,28 +87,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$user['attivo']) {
                         $error = 'Account disattivato';
                     } elseif (password_verify($password, $user['password'])) {
-                        // Nuovo id di sessione: quello di prima del login non vale più
-                        session_regenerate_id(true);
-                        // Imposta sessione
-                        $_SESSION['logged_in'] = true;
-                        $_SESSION['user_id'] = $user['id'];
-                        $_SESSION['username'] = $user['username'];
-                        $_SESSION['tipo_user'] = $user['tipo_user'];
-                        $_SESSION['login_time'] = time();
-
-                        // Aggiorna ultimo accesso
-                        $updateStmt = $conn->prepare("UPDATE users SET ultimo_accesso = NOW() WHERE id = ?");
-                        if ($updateStmt) {
-                            $updateStmt->bind_param("i", $user['id']);
-                            $updateStmt->execute();
-                            $updateStmt->close();
+                        if (!totpRichiesto()) {
+                            completaLogin($conn, $user);
                         }
-
-                        // Log accesso
-                        logAccess($username, true, 'login');
-
-                        // Redirect
-                        header('Location: index.php');
+                        if (dispositivoRiconosciuto($conn, (int)$user['id'])) {
+                            completaLogin($conn, $user, 'login_dispositivo');
+                        }
+                        // Da fuori ufficio: password giusta, manca il codice
+                        // dell'app Authenticator (totp.php). Non si è ancora dentro.
+                        session_regenerate_id(true);
+                        $_SESSION['totp_attesa'] = [
+                            'id' => (int)$user['id'], 'username' => $user['username'],
+                            'tipo_user' => $user['tipo_user'], 'dal' => time(),
+                        ];
+                        unset($_SESSION['totp_nuovo']);
+                        header('Location: totp.php');
                         exit;
                     } else {
                         $error = 'Credenziali non valide';
@@ -163,107 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="temi.css?v=1">
     <link rel="stylesheet" href="fontawesome/css/all.min.css">
-    <style>
-        /* Colori da temi.css: il tema è quello predefinito scelto dall'amministratore */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: var(--font-testo);
-            font-size: 14px;
-            color: var(--testo);
-            background: var(--pannello);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .login-barra {
-            height: 54px;
-            background: linear-gradient(180deg, var(--accento) 0%, var(--accento-scuro) 100%);
-        }
-        .login-pagina {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 24px 16px;
-        }
-        .login-container {
-            background: var(--bianco);
-            border: 1px solid var(--bordo);
-            border-radius: 10px;
-            box-shadow: var(--ombra);
-            width: 100%;
-            max-width: 400px;
-            overflow: hidden;
-        }
-        .login-header {
-            padding: 28px 32px 8px;
-            text-align: center;
-        }
-        .login-header h1 {
-            font-family: var(--font-titoli);
-            font-size: 26px;
-            color: var(--testo);
-            margin-bottom: 6px;
-        }
-        .login-header h1 i { color: var(--accento); margin-right: 4px; }
-        .login-header p { color: var(--testo-tenue); }
-        .login-corpo { padding: 18px 32px 26px; }
-        .form-group { margin-bottom: 16px; }
-        .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 700;
-            font-size: 13px;
-            color: var(--testo-secondario);
-        }
-        .form-group input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--bordo);
-            border-radius: var(--raggio);
-            font: inherit;
-            color: var(--testo);
-        }
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--accento);
-            box-shadow: 0 0 0 3px var(--selezione);
-        }
-        .btn-login {
-            width: 100%;
-            padding: 11px;
-            margin-top: 4px;
-            background: var(--accento);
-            color: #fff;
-            border: 0;
-            border-radius: var(--raggio);
-            font: inherit;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background .15s;
-        }
-        .btn-login:hover { background: var(--accento-scuro); }
-        .btn-login:disabled { opacity: .7; cursor: wait; }
-        .alert {
-            padding: 10px 12px;
-            border-radius: var(--raggio);
-            margin-bottom: 16px;
-        }
-        .alert-error {
-            background: var(--pericolo-chiaro);
-            color: var(--pericolo);
-            border-left: 3px solid var(--pericolo);
-        }
-        .login-piede a { color: inherit; }
-        .login-piede {
-            padding: 12px;
-            border-top: 1px solid var(--bordo);
-            background: var(--sfondo);
-            text-align: center;
-            color: var(--testo-tenue);
-            font-size: 12px;
-        }
-    </style>
+    <link rel="stylesheet" href="accesso.css?v=1">
 </head>
 <body>
     <div class="login-barra"></div>

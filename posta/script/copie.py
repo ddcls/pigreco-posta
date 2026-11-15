@@ -169,6 +169,8 @@ def classifica(disco, registrati):
             nome = p['etichetta'][len(PREFISSO_ETICHETTA):]
             if NOME_DISCO.match(nome):
                 return {'stato': 'pronto', 'nome': nome, 'uuid': p['uuid'], 'partizione': p['nome']}
+    if disco.get('interno'):
+        return {'stato': 'non_preparabile', 'motivo': 'è un disco interno: si prepara a mano, mai da questa pagina'}
     if disco.get('complesso'):
         return {'stato': 'non_preparabile', 'motivo': 'contiene volumi LVM, cifrati o RAID'}
     if disco.get('in_uso'):
