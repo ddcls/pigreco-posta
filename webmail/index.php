@@ -4589,6 +4589,9 @@ function toggleSettingsDropdown(event) {
                             <button class="btn-account-edit" title="Cambia password" onclick="changeUserAccountPassword(${u.id}, '${escapeHtmlAttr(u.username)}')">
                                 <i class="fas fa-key"></i>
                             </button>
+                            ${u.totp_attivo ? `<button class="btn-account-edit" title="Azzera secondo fattore (telefono perso o cambiato)" onclick="resetUserTotp(${u.id}, '${escapeHtmlAttr(u.username)}')">
+                                <i class="fas fa-shield-halved"></i>
+                            </button>` : ''}
                             <button class="btn-account-delete" title="Elimina" onclick="deleteUserAccount(${u.id}, '${escapeHtmlAttr(u.username)}')">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -4713,6 +4716,27 @@ function toggleSettingsDropdown(event) {
         .catch(error => {
             alert('Errore di rete durante il cambio password: ' + error.message);
         });
+    }
+
+    function resetUserTotp(id, username) {
+        if (!confirm(`Azzerare il secondo fattore di "${username}"?\nAl prossimo accesso da fuori ufficio dovrà inquadrare un nuovo QR con l'app Authenticator.`)) {
+            return;
+        }
+        fetch('api/manage_users.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `action=reset_totp&id=${encodeURIComponent(id)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                loadWebUsers();
+            } else {
+                alert('Errore: ' + data.error);
+            }
+        })
+        .catch(error => alert('Errore di rete: ' + error.message));
     }
 
     function deleteUserAccount(id, username) {

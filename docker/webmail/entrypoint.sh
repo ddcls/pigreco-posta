@@ -85,6 +85,12 @@ if [[ "$(mysql_root -N -e "SELECT COUNT(*) FROM information_schema.TABLES
     mysql_root "$DB_NAME" < "$APP/migrations/005_filtri.sql"
 fi
 
+if [[ "$(mysql_root -N -e "SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = '${DB_NAME}' AND TABLE_NAME = 'users' AND COLUMN_NAME = 'totp_segreto'")" == "0" ]]; then
+    echo "Applico migrations/006_totp.sql (secondo fattore per gli accessi da fuori)..."
+    mysql_root "$DB_NAME" < "$APP/migrations/006_totp.sql"
+fi
+
 if [[ "$(mysql_root -N "$DB_NAME" -e "SELECT COUNT(*) FROM users")" == "0" ]]; then
     # Password casuale mai mostrata: va impostata con reset_admin_password.php
     HASH=$(php -r 'echo password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);')
