@@ -13,7 +13,7 @@ gestore (Gmail, Libero, Aruba, PEC…) ──IMAP──▶ copia sul tuo disco �
 
 - **Copia locale delle caselle dei gestori.** A intervalli di pochi minuti le email nuove e i flag (letta, importante…) vengono copiati dal gestore (IMAP, `mbsync`) in una Maildir sul tuo server, servita da Dovecot. La copia **non cancella mai niente**. Lo spazio dipende dal tuo disco, non dalla quota del gestore.
 - **Liberare spazio presso il gestore, in sicurezza (facoltativo).** Per ogni casella puoi tenere sul gestore solo gli ultimi N giorni. Un'email viene cancellata dal gestore **solo se la sua copia locale è verificata**. Il valore predefinito è 0: non si cancella mai niente.
-- **Webmail.** Più caselle e più utenti. Vista a tre riquadri, che funziona anche sul telefono. Ricerca, cartelle, trascinamento delle email nelle cartelle, selezione multipla, bozze con salvataggio automatico, ⭐ importanti, **filtri** sul server, temi di colore. L'invio passa dall'SMTP di ogni gestore.
+- **Webmail.** Più caselle e più utenti. Vista a tre riquadri, che funziona anche sul telefono. Ricerca, cartelle, trascinamento delle email nelle cartelle, selezione multipla, bozze con salvataggio automatico, ⭐ importanti, **filtri** sul server, temi di colore, **secondo fattore** facoltativo all'accesso (codice dell'app Authenticator, sempre o solo da fuori ufficio). L'invio passa dall'SMTP di ogni gestore.
 - **Pagina "Gestione caselle"** per aggiungere le caselle, provare l'accesso al gestore, vedere lo stato della sincronizzazione e impostare la pulizia.
 - **Copie di backup su dischi USB**, automatiche e cifrate (restic), con avvisi per email, foglio di ripristino e ripristino completo con un comando. Gli stessi dischi possono tenere anche le copie di PiGreco Archivio.
 - **Tutto in Docker**: webmail (PHP 8.3 + Apache), MySQL 8, Dovecot, mbsync, pagina di gestione.
@@ -73,7 +73,8 @@ Caselle e database sono in `/srv/posta`. Le copie di backup si fanno da sole su 
 
 ## Sicurezza
 
-- Prima di esporre la webmail su Internet mettila dietro HTTPS, con un reverse proxy come Caddy, nginx o Traefik. La pagina di gestione (porta 8083) deve restare raggiungibile solo dalla rete dell'ufficio.
+- Prima di esporre la webmail su Internet mettila dietro HTTPS, con un reverse proxy come Caddy, nginx o Traefik. La pagina di gestione (porta 8083) deve restare raggiungibile solo dalla rete dell'ufficio (`POSTA_GESTIONE_ASCOLTO=127.0.0.1` o l'indirizzo del server nella rete dell'ufficio).
+- Con la webmail raggiungibile da Internet accendi il secondo fattore: `WEBMAIL_TOTP=fuori` e `WEBMAIL_RETI_INTERNE=192.168.1.0/24` (la rete dell'ufficio) chiedono il codice dell'app Authenticator solo da fuori; `WEBMAIL_TOTP=sempre` lo chiede a tutti. Dietro un proxy su `/webmail/` l'indirizzo vero si legge da `X-Forwarded-For` (solo dalle reti di Docker).
 - Le password IMAP/SMTP sono salvate cifrate (AES-256-GCM, chiave in `.env`). Il contenuto HTML delle email viene mostrato in un iframe isolato, senza script.
 - Il certificato di Dovecot creato al primo avvio è autofirmato. Sostituisci `/srv/posta/config/ssl/cert.pem` e `key.pem` con uno vero prima di usare la posta dai telefoni fuori dall'ufficio.
 - Hai trovato una vulnerabilità? Vedi [SECURITY.md](SECURITY.md): segnalala in privato, non in una issue pubblica.

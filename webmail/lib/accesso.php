@@ -17,6 +17,7 @@
  * Dovresti aver ricevuto una copia della GNU Affero General Public License
  * insieme a questo programma (file LICENSE). In caso contrario, vedi
  * <https://www.gnu.org/licenses/>.
+ */
 
 /**
  * Passi comuni dell'accesso alla webmail (login.php e totp.php): freno ai

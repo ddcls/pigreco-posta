@@ -31,7 +31,7 @@
 /**
  * Percorso dei cookie della webmail: "/" di serie; "/webmail/" quando lo
  * stesso indirizzo serve anche un altro programma (WEBMAIL_COOKIE_PATH, es.
- * cipesweb8 su /cipesweb8/): così il browser manda il cookie solo alle pagine
+ * un gestionale su /gestionale/): così il browser manda il cookie solo alle pagine
  * della webmail.
  */
 function percorsoCookie() {
