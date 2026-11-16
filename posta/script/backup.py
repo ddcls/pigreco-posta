@@ -63,7 +63,7 @@ import postaconf as pc  # noqa: E402
 DATI = pc.BASE
 ENV = '/opt/pigreco-posta/env/.env'
 MONTAGGI = '/mnt/backup'
-# Altre cartelle del server da copiare insieme alla posta (es. i dati di cipesweb8): ogni sottocartella montata qui
+# Altre cartelle del server da copiare insieme alla posta (es. i dati di un altro programma dello stesso server): ogni sottocartella montata qui
 # in sola lettura diventa uno snapshot "altre" (tag altre-<nome>). Il ripristino automatico non le tocca: si
 # rimettono a mano con restic (foglio di ripristino).
 ALTRE = '/backup-altre'
