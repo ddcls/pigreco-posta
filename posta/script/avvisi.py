@@ -169,7 +169,9 @@ def avvisi(per_email=False):
         if d.get('verifica_ok') is False:
             elenco.append({'tipo': 'verifica', 'testo': f"La verifica del disco di backup {d['nome']} ha trovato errori: "
                            f"sostituiscilo. ({d.get('verifica_messaggio', '')})"})
-        if (len(dischi) > 1 and imp['rotazione_giorni'] > 0 and d.get('collegato_dal')
+        # Un disco interno resta sempre collegato: lo scambio riguarda solo quelli USB
+        esterni = [x for x in dischi if not x.get('interno')]
+        if (len(esterni) > 1 and not d.get('interno') and imp['rotazione_giorni'] > 0 and d.get('collegato_dal')
                 and d['collegato_dal'] < adesso - imp['rotazione_giorni'] * 86400):
             giorni = int((adesso - d['collegato_dal']) // 86400)
             elenco.append({'tipo': 'rotazione', 'testo': f"Il disco di backup {d['nome']} è collegato da {giorni} giorni: "

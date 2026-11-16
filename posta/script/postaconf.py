@@ -300,13 +300,39 @@ def nome_imap(grezzo):
     return grezzo
 
 
+def prefisso_personale(imap):
+    """Prefisso del namespace personale annunciato dal gestore (es. "INBOX." su Aruba), '' se non c'e'."""
+    try:
+        tipo, dati = imap.namespace()
+    except (imaplib.IMAP4.error, AttributeError):
+        return ''
+    if tipo != 'OK' or not dati or not dati[0]:
+        return ''
+    testo = dati[0].decode('utf-8', 'replace') if isinstance(dati[0], bytes) else str(dati[0])
+    m = re.match(r'\s*\(\(\s*"((?:[^"\\]|\\.)*)"', testo)
+    return re.sub(r'\\(.)', r'\1', m.group(1)) if m else ''
+
+
+def nome_mbsync(nome, delim, prefisso=''):
+    """
+    Nome di una cartella del gestore come lo vuole mbsync nel mbsyncrc e come lo
+    vede nei Patterns: senza il prefisso del namespace personale (mbsync lo
+    toglie da solo: "INBOX.Clienti" su Aruba diventa "Clienti") e con "/" al
+    posto del separatore del gestore (con "INBOX.Sent" mbsync rifiuta la
+    cartella: "mailbox name contains server's hierarchy delimiter").
+    """
+    if prefisso and nome.upper() != 'INBOX' and nome.startswith(prefisso) and len(nome) > len(prefisso):
+        nome = nome[len(prefisso):]
+    return nome.replace(delim, '/') if delim and delim != '/' else nome
+
+
 def q(testo):
     """Valore tra virgolette (mbsyncrc e comandi IMAP)."""
     return '"' + testo.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
 def cartelle_gestore(a, imap=None, conta=False):
-    """Cartelle del gestore: [{nome, delim, flag (minuscoli), messaggi}]."""
+    """Cartelle del gestore: [{nome, delim, flag (minuscoli), messaggi, mbsync (nome_mbsync)}]."""
     propria = imap is None
     if propria:
         imap = connetti(a)
@@ -331,6 +357,9 @@ def cartelle_gestore(a, imap=None, conta=False):
             delim = None if m.group('delim') == 'NIL' else nome_imap(m.group('delim'))
             cartelle.append({'nome': nome, 'delim': delim,
                              'flag': m.group('flag').lower().split(), 'messaggi': None})
+        prefisso = prefisso_personale(imap)
+        for c in cartelle:
+            c['mbsync'] = nome_mbsync(c['nome'], c['delim'], prefisso)
         if conta:
             for c in cartelle:
                 if apribile(c):
@@ -388,14 +417,17 @@ def piano_cartelle(a, cartelle):
             [{gestore, locale, messaggi, nota}] per la pagina di gestione.
     """
     speciali = trova_speciali(cartelle)
-    nomi = {c['nome'] for c in cartelle}
+    # Nomi come li vede mbsync ("INBOX.Sent" -> "Sent" con il prefisso "INBOX.")
+    mb = {c['nome']: c.get('mbsync', c['nome']) for c in cartelle}
+    del_gestore = {v: k for k, v in mb.items()}
     canali = [(gest, loc) for loc, gest in speciali.items()]
 
     # Una cartella del gestore che si chiama come una speciale locale ma non
     # è quella speciale (es. "Junk" accanto a "Spam" \Junk) finirebbe nella
     # stessa cartella locale: si copia a parte, in "<nome>_gestore"
-    omonime = [loc for loc in speciali if loc not in speciali.values() and loc in nomi]
-    canali += [(loc, f'{loc}_gestore') for loc in omonime]
+    speciali_mb = {mb.get(g, g) for g in speciali.values()}
+    omonime = [del_gestore[loc] for loc in speciali if loc not in speciali_mb and loc in del_gestore]
+    canali += [(gest, f'{mb[gest]}_gestore') for gest in omonime]
 
     # Nella copia locale (Maildir++) il punto separa le sottocartelle: una
     # cartella "INBOX.Sent" su un gestore che separa con "/" va rinominata
@@ -405,8 +437,8 @@ def piano_cartelle(a, cartelle):
 
     # Patterns vale per tutti e due i lati: vanno escluse anche le cartelle
     # locali gestite dagli altri canali (Junk, Sent_gestore...)
-    esclusi = [gest for gest, _ in canali] + [loc for _, loc in canali]
-    esclusi += [f'{nome}/*' for nome in puntate] + a.get('escludi', [])
+    esclusi = [mb.get(gest, gest) for gest, _ in canali] + [loc for _, loc in canali]
+    esclusi += [f'{mb.get(nome, nome)}/*' for nome in puntate] + a.get('escludi', [])
     esclusi = list(dict.fromkeys(esclusi))
 
     locale_di = dict(canali)
@@ -427,9 +459,9 @@ def piano_cartelle(a, cartelle):
             else:
                 nota = 'punto nel nome sostituito'
         else:
-            loc = 'Posta in arrivo' if nome.upper() == 'INBOX' else nome
+            loc = 'Posta in arrivo' if nome.upper() == 'INBOX' else mb.get(nome, nome)
         righe.append({'gestore': nome, 'locale': loc, 'messaggi': c['messaggi'], 'nota': nota})
-    return {'canali': canali, 'esclusi': esclusi, 'righe': righe}
+    return {'canali': canali, 'esclusi': esclusi, 'righe': righe, 'mbsync': mb}
 
 
 # ==================== MBSYNC ====================
@@ -464,7 +496,7 @@ def genera_mbsync():
         except Exception as e:
             errore(f"[{a['indirizzo']}] cartelle del gestore non lette ({e}): "
                    'le cartelle speciali tengono il nome del gestore')
-            piano = {'canali': [], 'esclusi': a['escludi'], 'righe': []}
+            piano = {'canali': [], 'esclusi': a['escludi'], 'righe': [], 'mbsync': {}}
 
         maildir = os.path.join(BASE, a['indirizzo'], 'Maildir') + '/'
         blocchi.append(f"""
@@ -490,7 +522,7 @@ SubFolders Maildir++
             canali.append(f'{nome}-{i}')
             blocchi.append(f"""
 Channel {nome}-{i}
-Far {q(':' + nome + '-gestore:' + gestore)}
+Far {q(':' + nome + '-gestore:' + piano['mbsync'].get(gestore, gestore))}
 Near {q(':' + nome + '-locale:' + locale)}
 {COMUNI}""")
         blocchi.append(f"""
@@ -595,12 +627,14 @@ def cartelle_solo_locali(a, cartelle, canali):
     Nomi con "/" come separatore, come nei Patterns di mbsync.
     """
     note = set()
+    mb = {}
     for c in cartelle:
-        nome = c['nome'].replace(c['delim'], '/') if c['delim'] and c['delim'] != '/' else c['nome']
+        nome = c.get('mbsync') or nome_mbsync(c['nome'], c['delim'])
+        mb[c['nome']] = nome
         parti = nome.split('/')
         note.update('/'.join(parti[:i]) for i in range(1, len(parti) + 1))
     for gestore, locale in canali:
-        note.update((gestore, locale))
+        note.update((mb.get(gestore, gestore), locale))
     maildir = os.path.join(BASE, a['indirizzo'], 'Maildir')
     locali = [d[1:].replace('.', '/') for d in _ls(maildir)
               if d.startswith('.') and len(d) > 1 and os.path.isdir(os.path.join(maildir, d, 'cur'))]
@@ -643,11 +677,11 @@ def data_imap(giorni):
     return f'{t.tm_mday:02d}-{MESI_IMAP[t.tm_mon - 1]}-{t.tm_year}'
 
 
-def cartella_locale(maildir, nome, delim, canali):
-    """Cartella Maildir++ in cui mbsync copia la cartella "nome" del gestore."""
-    locale = dict(canali).get(nome)
+def cartella_locale(maildir, c, canali):
+    """Cartella Maildir++ in cui mbsync copia la cartella c (da cartelle_gestore) del gestore."""
+    locale = dict(canali).get(c['nome'])
     if locale is None:
-        locale = nome.replace(delim, '/') if delim else nome
+        locale = c.get('mbsync') or nome_mbsync(c['nome'], c['delim'])
     if locale.upper() == 'INBOX':
         return maildir
     return os.path.join(maildir, '.' + locale.replace('/', '.'))
@@ -747,7 +781,7 @@ def pulisci_gestore(a, giorni, prova=True):
         for c in sorted(cartelle, key=lambda c: c['nome'].lower()):
             if not apribile(c) or c['nome'] in escluse:
                 continue
-            locale = cartella_locale(maildir, c['nome'], c['delim'], piano['canali'])
+            locale = cartella_locale(maildir, c, piano['canali'])
             riga = {'gestore': c['nome'], 'locale': os.path.relpath(locale, maildir),
                     'vecchie': 0, 'confermate': 0, 'cancellate': 0, 'nota': ''}
             righe.append(riga)

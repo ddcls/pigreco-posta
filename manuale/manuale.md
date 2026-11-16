@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.4 · ottobre 2026
+Versione 1.5 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -108,11 +108,18 @@ Le impostazioni sono nel file `.env`, nella cartella di PiGreco Posta:
 | `WEBMAIL_PORT` | 8080 | Porta della webmail |
 | `WEBMAIL_ASCOLTO` | 0.0.0.0 | `0.0.0.0` = webmail aperta a tutta la rete; `127.0.0.1` = porta chiusa alla rete (con PiGreco Archivio, paragrafo 13) |
 | `POSTA_GESTIONE_PORT` | 8083 | Porta della pagina Gestione caselle |
+| `POSTA_GESTIONE_ASCOLTO` | 0.0.0.0 | Da dove si apre la Gestione caselle: `0.0.0.0` = da tutta la rete; `127.0.0.1` = solo dal server; oppure l'indirizzo del server nella rete dell'ufficio |
 | `POSTA_IMAP_PORT` / `POSTA_IMAPS_PORT` | 143 / 993 | Porte IMAP per telefoni e programmi di posta |
+| `POSTA_IMAP_ASCOLTO` | 0.0.0.0 | `0.0.0.0` = IMAP aperto alla rete (telefoni, Thunderbird); `127.0.0.1` = chiuso alla rete, quando la posta si legge solo dalla webmail (che lo usa comunque) |
+| `WEBMAIL_TOTP` | mai | Codice di verifica dopo la password: `mai`, `fuori` (solo per chi entra da fuori ufficio) o `sempre` (paragrafo 9.1) |
+| `WEBMAIL_RETI_INTERNE` | (vuoto) | Con `fuori`: le reti dell'ufficio, separate da virgole, per esempio `192.168.1.0/24`; `!` davanti esclude un indirizzo (`!192.168.1.1`, il router) |
+| `WEBMAIL_TOTP_NOME` | PiGreco Posta | Nome della riga nell'app Authenticator |
+| `WEBMAIL_COOKIE_PATH` | / | `/webmail/` se lo stesso indirizzo serve anche un altro programma, altrimenti `/` |
 | `POSTA_DIR` | `/srv/posta` | Dove stanno le caselle copiate (una cartella per indirizzo, con la sua `Maildir`) |
 | `WEBMAIL_DB_DIR` | `/srv/posta/mysql` | Dove sta il database della webmail |
 | `POSTA_INTERVALLO` | 300 | Secondi tra una copia e la successiva |
 | `BACKUP_PASSWORD` | (casuale) | Password che cifra le copie di backup sui dischi USB (capitolo 12): la crea `installa.sh`, è sul foglio di ripristino |
+| `BACKUP_DISCHI_INTERNI` | 0 | `1` = copie anche su un disco interno del server preparato a mano (paragrafo 12.2) |
 
 Se `installa.sh` dice che una porta è già usata (per esempio perché sul server c'è già un altro
 server di posta), cambia il valore in `.env`, ad esempio `POSTA_IMAP_PORT=1143`, e rilancia
@@ -220,7 +227,8 @@ aggiungere** con la spiegazione, e la casella non viene salvata.
 ## 5. Usare la webmail
 
 Apri `http://<server>:8080/webmail/`, scrivi **Username** e **Password** della webmail e premi
-**Accedi**.
+**Accedi**. Se l'amministratore ha acceso il codice di verifica, da fuori ufficio dopo la password
+la webmail chiede anche il numero di 6 cifre dell'app Authenticator (paragrafo 9.1).
 
 La schermata è divisa in tre parti, come nei programmi di posta più diffusi.
 
@@ -413,7 +421,48 @@ L'amministratore della webmail gestisce caselle e utenti dal menu utente → **I
 - **Utenti webmail**: crea gli utenti che entrano nella webmail (ruolo **Amministratore** o
   **Operatore**), ne cambia la password, li disattiva. Gli operatori vedono solo le caselle
   visibili a tutti o assegnate a loro.
-- **Log Accessi**: elenco degli accessi alla webmail, riusciti e falliti.
+- **Log Accessi**: elenco degli accessi alla webmail, riusciti e falliti (anche i codici di verifica
+  sbagliati).
+
+### 9.1 Il codice di verifica (secondo fattore)
+
+Se la webmail si apre anche da Internet, la sola password non basta: chi la scopre legge la posta.
+Con il **codice di verifica**, dopo la password la webmail chiede il numero di 6 cifre che
+un'app sul telefono (**Google Authenticator** o **Microsoft Authenticator**) cambia ogni 30
+secondi.
+
+**Accenderlo** (amministratore del server), nel file `.env`:
+
+```
+WEBMAIL_TOTP=fuori
+WEBMAIL_RETI_INTERNE=192.168.1.0/24
+```
+
+poi `docker compose up -d webmail`. Con `fuori` il codice si chiede solo a chi entra da fuori
+dalla rete dell'ufficio: dai PC dell'ufficio basta la password. Con `sempre` si chiede a tutti; con
+`mai` (il valore di serie) mai. Se gli accessi da Internet arrivano con l'indirizzo del router,
+escludilo: `WEBMAIL_RETI_INTERNE=192.168.1.0/24,!192.168.1.1`.
+
+**La prima volta**, dopo la password, la pagina **Codice di verifica** mostra un QR:
+
+1. sul telefono installa l'app Authenticator;
+2. nell'app tocca **+** e **Scansiona codice QR** e inquadra il QR (dal telefono stesso: **Apri
+   nell'app Authenticator**, oppure scrivi a mano la chiave mostrata sotto il QR);
+3. scrivi il numero di 6 cifre che compare nell'app e premi **Attiva ed entra**.
+
+Le volte successive basta scrivere il numero della riga **PiGreco Posta** dell'app. Ci sono
+5 minuti di tempo dopo la password; il numero è valido una sola volta. Spuntando **Ricorda questo
+dispositivo per 30 giorni** quel telefono o PC non chiede il codice per un mese: non farlo su un
+computer di altri. Cambiando la password, tutti i dispositivi ricordati devono rifare il codice.
+
+**Telefono perso o cambiato**: l'amministratore della webmail, in **Impostazioni › Utenti
+webmail**, preme lo scudo 🛡 accanto all'utente (**Azzera secondo fattore**). Al prossimo accesso
+da fuori l'utente inquadra un nuovo QR. Il vecchio telefono non serve più a niente.
+
+> **NOTA** Se la webmail è dietro un **proxy** (Caddy, nginx, PiGreco Archivio), il proxy deve
+> mandare l'indirizzo vero del visitatore nell'intestazione `X-Forwarded-For`: la webmail lo
+> accetta solo dalle reti di Docker. Se l'indirizzo pubblico serve anche un altro programma, metti
+> `WEBMAIL_COOKIE_PATH=/webmail/`.
 
 ---
 
@@ -464,6 +513,9 @@ all'installazione. Per leggere la posta **fuori dall'ufficio** servono un indiri
 da Internet e un certificato vero (`/srv/posta/config/ssl/cert.pem` e `key.pem`): chiedi al
 tecnico.
 
+Se nessuno usa IMAP direttamente, puoi chiuderlo alla rete con `POSTA_IMAP_ASCOLTO=127.0.0.1` in
+`.env` e `docker compose up -d posta`: la webmail continua a funzionare, telefoni e Thunderbird no.
+
 ---
 
 ## 12. Backup e aggiornamenti
@@ -499,6 +551,14 @@ Collega il disco al server: dopo qualche secondo compare in **Dischi USB collega
 Il programma non formatta mai un disco già preparato, né uno che contiene copie di PiGreco (le
 cerca dentro il disco prima di formattare), né un disco aperto sul desktop o in uso: in quel caso
 spiega perché. **Non usarlo più** smette di usare un disco, ma le copie già fatte restano sopra.
+
+**Disco interno** (facoltativo): le copie possono andare anche su un secondo disco **dentro** il
+server. Il tecnico lo prepara una volta a mano, con una partizione ext4 non montata dal sistema
+(`mkfs.ext4 -L PIGRECO-INTERNO /dev/sdXN`), e mette `BACKUP_DISCHI_INTERNI=1` in `.env`, poi
+`docker compose up -d posta-backup`. Il disco compare tra i dischi pronti: **Usa questo disco**.
+Dei dischi interni il programma vede solo le partizioni `PIGRECO-*` e non ne formatta mai
+nessuno. Un disco interno non protegge da furto, incendio o guasto del server: tieni comunque un
+disco USB fuori dall'ufficio.
 
 ### 12.3 Quando si fanno le copie
 
@@ -614,6 +674,9 @@ I passi dell'installazione sono nella guida di PiGreco Archivio (`INSTALLA-DEBIA
 | La pagina Gestione caselle dice "Password non impostata" | `./scripts/password-gestione.sh admin` |
 | Una casella non si aggiorna | Nell'elenco di Gestione caselle guarda l'esito dell'ultima copia; poi `docker compose logs posta-sincronizza` |
 | Mancano email rispetto al gestore | `./scripts/confronta.sh indirizzo@esempio.it` mostra, cartella per cartella, quante email ci sono sul gestore e nella copia |
+| Telefono con l'app Authenticator perso o cambiato | L'amministratore azzera il secondo fattore dell'utente (paragrafo 9.1) |
+| "Codice non valido" | Scrivi il numero che l'app mostra **adesso**; se è sempre sbagliato controlla che data e ora del telefono siano automatiche |
+| "Tempo scaduto per il codice di verifica" | Sono passati più di 5 minuti dalla password: rientra |
 | "Testa connessione" non riesce sull'IMAP | Server `posta`, porta 143, STARTTLS, utente = indirizzo email, password = password **locale** (non quella del gestore) |
 | "Testa connessione" non riesce sull'SMTP | Controlla con il gestore server, porta e sicurezza dell'invio |
 | Dopo un ripristino le caselle chiedono di nuovo la password | La chiave in `.env` non è quella di prima: rimetti il `.env` del backup |

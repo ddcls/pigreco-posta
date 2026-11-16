@@ -63,6 +63,10 @@ import postaconf as pc  # noqa: E402
 DATI = pc.BASE
 ENV = '/opt/pigreco-posta/env/.env'
 MONTAGGI = '/mnt/backup'
+# Altre cartelle del server da copiare insieme alla posta (es. i dati di un altro programma dello stesso server): ogni sottocartella montata qui
+# in sola lettura diventa uno snapshot "altre" (tag altre-<nome>). Il ripristino automatico non le tocca: si
+# rimettono a mano con restic (foglio di ripristino).
+ALTRE = '/backup-altre'
 HOST_RESTIC = 'pigreco-posta'
 INTERVALLO = 30
 LAVORI_TENUTI = 50
@@ -176,8 +180,17 @@ def partizione(p):
             'uuid': p.get('uuid') or '', 'dimensione': int(p.get('size') or 0)}
 
 
+# BACKUP_DISCHI_INTERNI=1: si usano anche i dischi interni (SATA), ma solo le loro partizioni ext4 già preparate
+# a mano con l'etichetta PIGRECO-<NOME> (mkfs.ext4 -L PIGRECO-INTERNO /dev/sdXN): un disco interno non si formatta mai
+# da qui e le altre sue partizioni (sistema, swap, dati) non compaiono nemmeno.
+DISCHI_INTERNI = os.environ.get('BACKUP_DISCHI_INTERNI', '0').strip().lower() in ('1', 'si', 'sì', 'true', 'yes')
+
+
 def dischi_usb():
-    """Dischi USB collegati, esclusi quelli senza supporto e quello dei dati."""
+    """
+    Dischi USB collegati, esclusi quelli senza supporto e quello dei dati; con
+    DISCHI_INTERNI anche i dischi SATA, ridotti alle partizioni PIGRECO-*.
+    """
     codice, uscita, _ = comando(['lsblk', '-J', '-b', '-o',
                                  'NAME,MAJ:MIN,TYPE,TRAN,SIZE,VENDOR,MODEL,SERIAL,FSTYPE,LABEL,UUID'])
     try:
@@ -189,7 +202,8 @@ def dischi_usb():
     nostro = dispositivo_dati()
     dischi = []
     for d in dati.get('blockdevices', []):
-        if d.get('type') != 'disk' or d.get('tran') != 'usb' or int(d.get('size') or 0) <= 0:
+        interno = d.get('tran') == 'sata' and DISCHI_INTERNI
+        if d.get('type') != 'disk' or (d.get('tran') != 'usb' and not interno) or int(d.get('size') or 0) <= 0:
             continue
         if not d.get('name', '').startswith('sd'):
             continue
@@ -203,11 +217,20 @@ def dischi_usb():
             partizioni.append(partizione(p))
         if contiene_dati:
             continue
+        if interno:
+            # Disco di sistema (LVM, RAID, cifratura: dispositivo_dati() non lo riconosce) mai; delle altre
+            # partizioni solo quelle preparate per le copie
+            if complesso:
+                continue
+            partizioni = [p for p in partizioni
+                          if p['fs'] == 'ext4' and p['etichetta'].startswith(cp.PREFISSO_ETICHETTA)]
+            if not partizioni:
+                continue
         dischi.append({
             'dispositivo': d['name'], 'seriale': (d.get('serial') or '').strip(),
             'modello': ' '.join(x for x in ((d.get('vendor') or '').strip(), (d.get('model') or '').strip()) if x),
             'dimensione': int(d['size']), 'complesso': complesso,
-            'in_uso': in_uso('/dev/' + d['name']), 'partizioni': partizioni,
+            'in_uso': in_uso('/dev/' + d['name']), 'partizioni': partizioni, 'interno': interno,
         })
     return dischi
 
@@ -488,6 +511,7 @@ class Servizio:
         registrati.append({
             'nome': nome, 'uuid': uuid, 'seriale': disco['seriale'], 'modello': disco['modello'],
             'dimensione': disco['dimensione'], 'spazio_libero': libero or None, 'copie': copie,
+            'interno': bool(disco.get('interno')),
             'ultima_copia': copie[0]['data'] if copie else None, 'registrato_il': time.time(),
             'ultimo_collegamento': time.time(), 'collegato_dal': time.time(),
             'ultima_verifica': None, 'verifica_ok': None, 'verifica_messaggio': None,
@@ -565,7 +589,10 @@ class Servizio:
             self.avanzamento(lavoro, 5)
             percorsi = [DATI] + ([ENV] if os.path.isfile(ENV) else [])
             caselle = restic(repo, ['backup', '--json', '--tag', 'caselle'] + etichette + self.escludi_mysql() + percorsi,
-                             su_stato=lambda s: self.avanzamento(lavoro, 5 + round(90 * float(s.get('percent_done') or 0))))
+                             su_stato=lambda s: self.avanzamento(lavoro, 5 + round(85 * float(s.get('percent_done') or 0))))
+            for nome, cartella in self.altre_cartelle():
+                restic(repo, ['backup', '--json', '--tag', 'altre', '--tag', f'altre-{nome}'] + etichette + [cartella])
+            self.avanzamento(lavoro, 97)
             restic(repo, ['forget', '--host', HOST_RESTIC, '--prune',
                           '--keep-daily', str(imp['tieni_giorni']), '--keep-weekly', str(imp['tieni_settimane']),
                           '--keep-monthly', str(imp['tieni_mesi'])])
@@ -580,6 +607,17 @@ class Servizio:
         return (f"Copia sul disco {disco['nome']}: {file} file nuovi o cambiati, {cp.byte(aggiunti)} aggiunti. "
                 'Puoi staccare il disco.')
 
+    @staticmethod
+    def altre_cartelle():
+        """(nome, percorso) delle cartelle montate in ALTRE, non vuote."""
+        try:
+            nomi = sorted(os.listdir(ALTRE))
+        except OSError:
+            return []
+        return [(n, os.path.join(ALTRE, n)) for n in nomi
+                if n.replace('-', '').replace('_', '').isalnum() and os.path.isdir(os.path.join(ALTRE, n))
+                and os.listdir(os.path.join(ALTRE, n))]
+
     def elenco_copie(self, repo, sola_lettura=False):
         """Copie sul disco, la più recente prima: una per esecuzione, con gli id dei due snapshot."""
         uscita = restic(repo, ['snapshots', '--json', '--host', HOST_RESTIC] + (['--no-lock'] if sola_lettura else []),
@@ -591,6 +629,8 @@ class Servizio:
         copie = {}
         for s in snapshot:
             etichette = s.get('tags') or []
+            if 'altre' in etichette:
+                continue   # cartelle di altri programmi: non fanno parte del ripristino della posta
             chiave = next((t for t in etichette if t.startswith('esecuzione-')), 'altro-' + s['short_id'])
             tipo = 'database' if 'database' in etichette else 'caselle'
             # restic scrive i nanosecondi, che fromisoformat (Python 3.11) non accetta

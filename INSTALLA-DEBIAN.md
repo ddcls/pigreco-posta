@@ -311,6 +311,9 @@ Telefoni e Thunderbird possono leggere la copia locale direttamente: capitolo 11
 **Da fuori ufficio**: non aprire le porte sul router così come sono. Serve HTTPS (un reverse proxy
 come Caddy o nginx con un certificato vero) oppure una VPN. La pagina Gestione caselle resta solo in
 ufficio.
+Con la webmail su Internet accendi anche il **codice di verifica** (secondo fattore) per chi entra da
+fuori: nel `.env` `WEBMAIL_TOTP=fuori` e `WEBMAIL_RETI_INTERNE=192.168.1.0/24` (la rete dell'ufficio), poi
+`docker compose up -d webmail`. Dettagli nel capitolo 9 del [manuale](manuale/manuale.md).
 
 ---
 

@@ -91,6 +91,14 @@ services:
       # solo le pagine aperte da lì mostrano Archivio/Archivia e la rubrica.
       # "/" = sempre collegata (webmail pubblicata in altro modo dall'Archivio)
       - ARCHIVIO_URL=${ARCHIVIO_URL:-}
+      # Secondo fattore (app Authenticator): mai | fuori | sempre. "fuori" =
+      # solo a chi non arriva da WEBMAIL_RETI_INTERNE (es. 192.168.1.0/24)
+      - WEBMAIL_TOTP=${WEBMAIL_TOTP:-mai}
+      - WEBMAIL_RETI_INTERNE=${WEBMAIL_RETI_INTERNE:-}
+      - WEBMAIL_TOTP_NOME=${WEBMAIL_TOTP_NOME:-PiGreco Posta}
+      # Percorso dei cookie: "/webmail/" se lo stesso indirizzo serve anche
+      # un altro programma
+      - WEBMAIL_COOKIE_PATH=${WEBMAIL_COOKIE_PATH:-/}
     depends_on:
       db:
         condition: service_healthy
@@ -134,8 +142,10 @@ services:
     <<: *posta
     command: dovecot
     ports:
-      - "${POSTA_IMAP_PORT:-143}:143"
-      - "${POSTA_IMAPS_PORT:-993}:993"
+      # POSTA_IMAP_ASCOLTO=127.0.0.1 chiude IMAP alla rete (la webmail entra
+      # dalla rete interna di Docker, i telefoni non possono più usarlo)
+      - "${POSTA_IMAP_ASCOLTO:-0.0.0.0}:${POSTA_IMAP_PORT:-143}:143"
+      - "${POSTA_IMAP_ASCOLTO:-0.0.0.0}:${POSTA_IMAPS_PORT:-993}:993"
     networks:
       - default
       - pigreco
@@ -160,7 +170,9 @@ services:
       # Solo per il foglio di ripristino (Copie di backup), che la stampa
       - BACKUP_PASSWORD=${BACKUP_PASSWORD:-}
     ports:
-      - "${POSTA_GESTIONE_PORT:-8083}:8080"
+      # POSTA_GESTIONE_ASCOLTO: 127.0.0.1 = solo dal server (tunnel SSH),
+      # oppure l'IP del server nella rete dell'ufficio
+      - "${POSTA_GESTIONE_ASCOLTO:-0.0.0.0}:${POSTA_GESTIONE_PORT:-8083}:8080"
 
   # Copie di backup su dischi USB (gli stessi di PiGreco Archivio, cartella
   # pigreco-posta/): root, monta i dischi solo durante il lavoro
@@ -193,6 +205,9 @@ services:
       - DB_ROOT_PASS=${DB_ROOT_PASS:-}
       # Percorsi sul server: i file di MySQL dentro POSTA_DIR non si copiano (c'è il dump)
       - POSTA_DIR_HOST=${POSTA_DIR:-/srv/posta}
+      # 1 = anche i dischi interni (SATA), solo le partizioni ext4 già
+      # preparate a mano con etichetta PIGRECO-<NOME>: mai formattati da qui
+      - BACKUP_DISCHI_INTERNI=${BACKUP_DISCHI_INTERNI:-0}
       - WEBMAIL_DB_DIR_HOST=${WEBMAIL_DB_DIR:-/srv/posta/mysql}
     depends_on:
       db:

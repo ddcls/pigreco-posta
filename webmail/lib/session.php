@@ -28,6 +28,18 @@
  * stesso nome di cookie si sovrascrivono la sessione a vicenda (entrando in
  * una si esce dall'altra).
  */
+/**
+ * Percorso dei cookie della webmail: "/" di serie; "/webmail/" quando lo
+ * stesso indirizzo serve anche un altro programma (WEBMAIL_COOKIE_PATH, es.
+ * un gestionale su /gestionale/): così il browser manda il cookie solo alle pagine
+ * della webmail.
+ */
+function percorsoCookie() {
+    require_once __DIR__ . '/../config/env_loader.php';
+    $percorso = (string)env('WEBMAIL_COOKIE_PATH', '/');
+    return preg_match('#^/[A-Za-z0-9._/-]*$#', $percorso) ? $percorso : '/';
+}
+
 function avviaSessione() {
     session_name('WEBMAIL_SID');
     // HttpOnly: il cookie non è leggibile da JavaScript. SameSite=Lax: il
@@ -37,7 +49,7 @@ function avviaSessione() {
         || strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     session_set_cookie_params([
         'lifetime' => 0,
-        'path'     => '/',
+        'path'     => percorsoCookie(),
         'secure'   => $https,
         'httponly' => true,
         'samesite' => 'Lax',

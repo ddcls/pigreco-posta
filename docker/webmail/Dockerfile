@@ -42,7 +42,9 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN docker-php-ext-install -j$(nproc) mysqli zip
 
-RUN a2enmod headers
+# remoteip: dietro Caddy o PiGreco Archivio l'IP vero del client (blocco dei
+# tentativi di accesso, registro, reti interne del secondo fattore)
+RUN a2enmod headers remoteip
 
 COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 COPY php.ini /usr/local/etc/php/conf.d/webmail.ini

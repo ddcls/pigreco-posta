@@ -13,7 +13,7 @@ provider (Gmail, Libero, Aruba, PEC…) ──IMAP──▶ local copy on your d
 
 - **Local copy of the provider mailboxes.** Every few minutes, new mail and flags (read, important…) are copied from the provider (IMAP, `mbsync`) to a Maildir on your server, served by Dovecot. The copy **never deletes anything**. Space depends on your disk, not on the provider's quota.
 - **Free up space at the provider, safely (optional).** For each mailbox you can keep only the last N days on the provider. An email is deleted from the provider **only if its local copy has been verified**. The default is 0: nothing is ever deleted.
-- **Webmail.** Multi-account, multi-user. Three-pane layout that also works on phones. Search, folders, drag & drop into folders, multi-select, drafts with autosave, important ⭐, server-side **filters**, colour themes. Sending goes through each provider's own SMTP.
+- **Webmail.** Multi-account, multi-user. Three-pane layout that also works on phones. Search, folders, drag & drop into folders, multi-select, drafts with autosave, important ⭐, server-side **filters**, colour themes, optional **two-factor login** (authenticator app code, always or only from outside the office network). Sending goes through each provider's own SMTP.
 - **"Gestione caselle" web page** to add mailboxes, test the provider login, see sync status and set the cleanup.
 - **Backups on USB disks**, automatic and encrypted (restic), with e-mail alerts, a recovery sheet and a one-command full restore. The same disks can also hold PiGreco Archivio's backups.
 - **Everything in Docker**: webmail (PHP 8.3 + Apache), MySQL 8, Dovecot, mbsync, management page.
@@ -75,7 +75,8 @@ Mailboxes and database live in `/srv/posta`. Encrypted backups (restic) run auto
 
 ## Security notes
 
-- Put the webmail behind HTTPS (a reverse proxy such as Caddy, nginx or Traefik) before exposing it to the Internet. Keep the management page (port 8083) on the LAN only.
+- Put the webmail behind HTTPS (a reverse proxy such as Caddy, nginx or Traefik) before exposing it to the Internet. Keep the management page (port 8083) on the LAN only (`POSTA_GESTIONE_ASCOLTO=127.0.0.1` or the server's LAN address).
+- With the webmail reachable from the Internet, turn on the second factor: `WEBMAIL_TOTP=fuori` and `WEBMAIL_RETI_INTERNE=192.168.1.0/24` (your office network) ask the authenticator code only from outside; `WEBMAIL_TOTP=sempre` asks it from everywhere. Behind a proxy on `/webmail/` the real client address is read from `X-Forwarded-For` (Docker networks only).
 - IMAP/SMTP passwords are stored encrypted (AES-256-GCM, key in `.env`). The HTML body of emails is shown in a sandboxed iframe, without scripts.
 - The Dovecot certificate created at first start is self-signed. Replace `/srv/posta/config/ssl/cert.pem` and `key.pem` with a real one before using the mail from phones outside the office.
 - Found a vulnerability? See [SECURITY.md](SECURITY.md): please report it privately, not in a public issue.
