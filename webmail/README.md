@@ -125,6 +125,12 @@ mysql -u root -p webmail_digitale < migrations/005_filtri.sql
 * * * * * php /var/www/html/webmail/filtri_esegui.php >> /var/log/webmail-filtri.log 2>&1
 ```
 
+## Firme
+
+Dal menu utente › **Firme** (o dalla rotellina accanto a "Firma" nel compositore) ogni casella ha le sue firme, che vedono, usano e modificano tutti gli utenti della casella. Il metodo è quello di [MailCraft](https://github.com/UCS-Care-Group/mailcraft): una firma si compone **dai dati** (nome, qualifica, società, telefoni, email, sito, indirizzo, logo a sinistra o sopra, colore: una tabella con stili in linea, link `tel:`/`mailto:`/`https:`), oppure si scrive come **testo formattato** o come **HTML**. La casella sceglie la firma delle email nuove e quella di risposte e inoltri; nel compositore la firma è un blocco `[data-firma]` non modificabile, sopra la citazione nelle risposte, che si cambia dalla scelta "Firma".
+
+L'HTML si pulisce al salvataggio (`FirmeService::pulisciHtml()`, DOMDocument con elementi e attributi ammessi) e di nuovo con DOMPurify nel browser. Le immagini (PNG/JPEG/GIF, al massimo 256 KB l'una, 512 KB e 10 per firma; il browser rimpicciolisce le grandi a 600 pixel) stanno nella tabella `firme_immagini`, si vedono da `firma_immagine.php?id=N` e all'invio `send_email.php` le mette dentro l'email (`cid:`); nelle bozze resta il link. Tabelle `firme`, `firme_immagini` e colonne `mail_accounts.firma_nuove_id`/`firma_risposte_id` di `migrations/007_firme.sql` (applicata dall'entrypoint; installata da sola: `mysql -u root -p webmail_digitale < migrations/007_firme.sql`).
+
 ## Aggiornare il database
 
 Da una versione precedente della webmail (già con gli account IMAP), per la scelta del colore:

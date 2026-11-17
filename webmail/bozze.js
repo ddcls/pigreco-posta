@@ -236,6 +236,8 @@ const BozzeEmail = {
                 ed.innerHTML = escapeHtml(d.text_body || '').replace(/\n/g, '<br>') || '<div><br></div>';
                 toggleFormat('text');
             }
+            // La firma è già nel testo della bozza: niente firma in più
+            if (typeof FirmeEmail !== 'undefined') FirmeEmail.bozzaAperta();
             if (typeof updateHiddenTextarea === 'function') updateHiddenTextarea();
 
             // Gli allegati della bozza, ripresi dal server all'invio o al prossimo salvataggio

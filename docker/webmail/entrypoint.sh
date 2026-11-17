@@ -91,6 +91,12 @@ if [[ "$(mysql_root -N -e "SELECT COUNT(*) FROM information_schema.COLUMNS
     mysql_root "$DB_NAME" < "$APP/migrations/006_totp.sql"
 fi
 
+if [[ "$(mysql_root -N -e "SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = '${DB_NAME}' AND TABLE_NAME = 'mail_accounts' AND COLUMN_NAME = 'firma_nuove_id'")" == "0" ]]; then
+    echo "Applico migrations/007_firme.sql (firme delle email)..."
+    mysql_root "$DB_NAME" < "$APP/migrations/007_firme.sql"
+fi
+
 if [[ "$(mysql_root -N "$DB_NAME" -e "SELECT COUNT(*) FROM users")" == "0" ]]; then
     # Password casuale mai mostrata: va impostata con reset_admin_password.php
     HASH=$(php -r 'echo password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);')

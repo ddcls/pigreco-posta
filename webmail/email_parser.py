@@ -312,6 +312,9 @@ def extract_parts(msg, result, depth=0, is_real_body=False):
             'content_type': msg.get_content_type(),
             'size': len(raw),
             'content': base64.b64encode(raw).decode('ascii'),
+            # Content-ID senza < >: il corpo HTML vi si riferisce con cid:
+            # (immagini dentro l'email, per esempio il logo di una firma)
+            'content_id': (msg.get('Content-ID') or '').strip().strip('<>').strip(),
         })
 
     elif kind == 'text':

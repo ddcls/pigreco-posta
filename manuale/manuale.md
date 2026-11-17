@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.5 · novembre 2026
+Versione 1.6 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -239,7 +239,7 @@ La schermata è divisa in tre parti, come nei programmi di posta più diffusi.
 | **Cerca nella posta…** | Cerca tra le email (vedi sotto); il pulsante a destra apre le **opzioni di ricerca** |
 | **🔔** con un numero | Le email **non lette** di tutte le caselle |
 | **⚙** | Impostazioni (amministratore della webmail) oppure **Aspetto** |
-| **Cerchio con l'iniziale** | Menu utente: **Impostazioni**, **Aspetto**, **Filtri**, **Informazioni** (versione, autore, licenza e codice sorgente), **Esci** |
+| **Cerchio con l'iniziale** | Menu utente: **Impostazioni**, **Aspetto**, **Filtri**, **Firme**, **Informazioni** (versione, autore, licenza e codice sorgente), **Esci** |
 
 **A sinistra** — **✏ Nuova email**, il menu **Account** con la casella da consultare e le
 cartelle **Posta in arrivo**, **Inviata**, **Bozze**, **Indesiderata** e **Cestino**. Sotto
@@ -369,6 +369,34 @@ scrivi.
 - Se chiudi la finestra con modifiche non salvate, la webmail chiede se salvarle nelle Bozze.
 - Per riprendere una bozza: cartella **Bozze** → apri la bozza → **✏ Modifica bozza**.
 - Resta sempre una sola copia della bozza; dopo l'invio la bozza viene cancellata.
+
+**La firma**
+
+Ogni casella ha le sue firme: le vedono, le usano e le modificano tutti quelli che usano la
+casella, anche chi non è amministratore.
+
+1. Menu utente → **Firme** (oppure la rotellina ⚙ accanto a **Firma** mentre scrivi). In alto
+   scegli la **Casella**.
+2. **Nuova firma**, dai un nome (per esempio «Completa» o «Breve»). Poi scegli come farla:
+   - **Dai dati**: compila nome e cognome, qualifica, società, telefono, cellulare, email,
+     sito, indirizzo e, se vuoi, il **logo** (a sinistra del testo o sopra) e il colore. La
+     firma si compone da sola; telefono, email e sito diventano cliccabili;
+   - **Testo formattato**: la scrivi come vuoi, con grassetto, colori, link e immagini;
+   - **HTML**: incolli l'HTML della firma, per esempio fatto con un generatore di firme. Al
+     salvataggio si tolgono le parti non sicure (script, moduli, link strani).
+3. Sotto vedi l'**anteprima**, cioè come la vedrà chi riceve l'email. Premi **Salva**.
+4. In fondo alla finestra scegli la firma che entra da sola nelle **Email nuove** e quella delle
+   **Risposte e inoltri** (anche «Nessuna»). La prima firma creata vale per tutte e due.
+
+Mentre scrivi, la firma è già nel messaggio: nelle email nuove in fondo, nelle risposte e
+negli inoltri **sopra** il messaggio citato. Non si modifica dentro l'email: dalla scelta
+**Firma** (accanto a **Formato**) la cambi con un'altra o scegli **Nessuna**.
+
+- Le immagini della firma partono **dentro l'email**, non come link: chi riceve vede il logo
+  anche senza "scaricare le immagini". Un'immagine grande viene rimpicciolita (al massimo 600
+  pixel di larghezza); oltre 100 KB l'anteprima avverte che ogni email diventa più pesante.
+- Leggendo un'email, le immagini che stanno nel testo (come i loghi delle firme) si vedono al
+  loro posto e non compaiono tra gli allegati.
 
 ---
 

@@ -65,6 +65,7 @@ if (!$phpmailerLoaded) {
 }
 
 require_once __DIR__ . '/lib/MailboxService.php';
+require_once __DIR__ . '/lib/FirmeService.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
@@ -358,6 +359,16 @@ try {
         if (strpos($body, '<meta charset') === false && 
             strpos($body, '<meta http-equiv="Content-Type"') === false) {
             $body = '<meta charset="UTF-8">' . $body;
+        }
+        // Le immagini della firma (firma_immagine.php?id=N) partono dentro
+        // l'email (cid:). Nella bozza resta l'indirizzo della webmail: così,
+        // riaperta, la firma si vede e le immagini non diventano allegati.
+        if (!$bozza) {
+            try {
+                $body = (new FirmeService())->incorporaImmagini($body, $accountId, $mail);
+            } catch (Throwable $e) {
+                error_log('send_email.php: immagini della firma non incorporate: ' . $e->getMessage());
+            }
         }
         $mail->isHTML(true);
         $mail->Body = $body;

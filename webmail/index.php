@@ -51,6 +51,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="stylesheet" href="archivio.css?v=2.1">
     <link rel="stylesheet" href="contatti.css?v=2">
     <link rel="stylesheet" href="filtri.css?v=1">
+    <link rel="stylesheet" href="firme.css?v=1">
     <link rel="stylesheet" href="selezione.css?v=3">
     <link rel="stylesheet" href="cartelle.css?v=1">
     <link rel="stylesheet" href="ricerca.css?v=1">
@@ -161,6 +162,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     <?php endif; ?>
                     <div class="settings-item" onclick="FiltriEmail.apri()">
                         <i class="fas fa-filter"></i> Filtri
+                    </div>
+                    <div class="settings-item" onclick="FirmeEmail.apri()">
+                        <i class="fas fa-signature"></i> Firme
                     </div>
                     <div class="settings-item" onclick="document.getElementById('settingsMenu').classList.remove('show'); document.getElementById('informazioniModal').style.display = 'flex';">
                         <i class="fas fa-info-circle"></i> Informazioni
@@ -523,6 +527,16 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                             <i class="fas fa-code"></i> HTML
                         </button>
                     </div>
+                    <!-- Firma della casella (firme.js): si cambia o si toglie da qui -->
+                    <label class="compose-firma" for="composeFirma">
+                        <span class="compose-formato-etichetta">Firma</span>
+                        <select id="composeFirma" onchange="FirmeEmail.sceltaCambiata(this.value)">
+                            <option value="">Nessuna</option>
+                        </select>
+                    </label>
+                    <button type="button" class="compose-firma-gestisci" onclick="FirmeEmail.apriDaCompositore()" title="Firme di questa casella">
+                        <i class="fas fa-cog"></i>
+                    </button>
                 </div>
                 
                 <!-- Corpo email - Editor HTML WYSIWYG -->
@@ -1003,15 +1017,16 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
 </div>
 
     <!-- Editor HTML per email -->
-    <script src="email_editor.js"></script>
+    <script src="email_editor.js?v=2"></script>
     <script src="archivio.js?v=2.4"></script>
     <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
     <script src="contatti.js?v=2"></script>
     <script src="selezione.js?v=3"></script>
     <script src="ricerca.js?v=2"></script>
-    <script src="bozze.js?v=1"></script>
+    <script src="bozze.js?v=2"></script>
     <script src="cartelle.js?v=1"></script>
     <script src="filtri.js?v=1"></script>
+    <script src="firme.js?v=1"></script>
     <script src="tema.js?v=1"></script>
     <script src="telefono.js?v=1"></script>
         
@@ -1698,16 +1713,20 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     const attachmentsSection = document.getElementById('attachmentsSection');
                     const attachmentsList = document.getElementById('attachmentsList');
                     
-                    if (data.attachments && data.attachments.length > 0) {
+                    // Le immagini già mostrate nel testo (inline, per esempio il logo
+                    // di una firma) non si elencano: l'indice resta quello del server
+                    const allegatiVisibili = (data.attachments || []).filter(a => !a.inline).length;
+                    if (allegatiVisibili > 0) {
                         attachmentsSection.style.display = 'block';
                         // Mostra pulsante "Scarica tutti" con emailFolder
                         if (downloadAllBtn) {
-                            downloadAllBtn.style.display = (data.attachments.length > 1) ? 'inline-flex' : 'none';
+                            downloadAllBtn.style.display = (allegatiVisibili > 1) ? 'inline-flex' : 'none';
                         }
                         
                         let attachmentsHtml = '';
                         for (let i = 0; i < data.attachments.length; i++) {
                             const att = data.attachments[i];
+                            if (att.inline) continue;
                             // Normalizza il nome file: rimuove \r\n che causerebbero SyntaxError in onclick
                             const safeName = (att.filename || '').replace(/[\r\n]/g, ' ').trim();
                             const icon = getAttachmentIcon(safeName);
@@ -3214,12 +3233,14 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 // Popola la lista allegati inoltrati: ogni elemento ricorda il proprio
                 // indice nell'email originale, così al momento dell'invio il server
                 // saprà esattamente quali includere.
+                // Le immagini inline (già nel testo inoltrato) non ripartono come allegati
                 forwardedAttachmentsList = (emailData.attachments || []).map((att, idx) => ({
                     index: idx,
+                    inline: !!att.inline,
                     filename: att.filename || `allegato_${idx}`,
                     size: att.size || 0,
                     content_type: att.content_type || 'application/octet-stream'
-                }));
+                })).filter(att => !att.inline);
                 updateAttachmentPreview();
 
                 // Nascondi il vecchio warning statico (sostituito dalla preview)
@@ -3277,6 +3298,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 if (forwardWarning) forwardWarning.style.display = 'none';
             }
             
+            // Firma della casella: per le email nuove o, nell'inoltro, per le risposte
+            if (typeof FirmeEmail !== 'undefined') FirmeEmail.preparaCompositore(mode === 'forward' ? 'risposta' : 'nuova');
+
             // Bozze: il contenuto iniziale (citazione, inoltro) non conta come modifica
             if (typeof BozzeEmail !== 'undefined') BozzeEmail.inizia();
 
@@ -3556,7 +3580,13 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 // Fallback: recupera corpo dall'editor contenteditable se esiste
                 const emailEditor = document.getElementById('emailEditor');
                 if (emailEditor) {
-                    body = emailEditor.innerHTML.trim();
+                    // Senza gli attributi che servono solo nell'editor al blocco della firma
+                    const copia = emailEditor.cloneNode(true);
+                    copia.querySelectorAll('[data-firma]').forEach(f => {
+                        f.removeAttribute('contenteditable');
+                        f.removeAttribute('class');
+                    });
+                    body = copia.innerHTML.trim();
                     formData.set('body', body);
                 }
                 if (!body || body === '') {
@@ -4030,6 +4060,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             isReplying = true;
             isForwarding = false;
             isComposing = true;
+
+            // Firma della casella per le risposte, sopra il messaggio citato
+            if (typeof FirmeEmail !== 'undefined') FirmeEmail.preparaCompositore('risposta');
             
         }
 

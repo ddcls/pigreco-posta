@@ -1,0 +1,240 @@
+/*
+ * PiGreco Posta
+ * Copyright (C) 2026 Criscione Enzo
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Questo programma è software libero: puoi ridistribuirlo e/o modificarlo
+ * secondo i termini della GNU Affero General Public License come pubblicata
+ * dalla Free Software Foundation, versione 3 della licenza o (a tua scelta)
+ * qualsiasi versione successiva.
+ *
+ * Questo programma è distribuito nella speranza che sia utile, ma SENZA
+ * ALCUNA GARANZIA; senza neppure la garanzia implicita di COMMERCIABILITÀ
+ * o di IDONEITÀ PER UN PARTICOLARE SCOPO. Vedi la GNU Affero General
+ * Public License per i dettagli.
+ *
+ * Dovresti aver ricevuto una copia della GNU Affero General Public License
+ * insieme a questo programma (file LICENSE). In caso contrario, vedi
+ * <https://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Firme delle email (firme.js): finestra Firme e blocco della firma nel
+ * compositore. Usa la base delle finestre di style.css, i bottoni di
+ * archivio.css e i colori di temi.css.
+ */
+
+/* Compositore: scelta della firma e blocco nel messaggio */
+.compose-formato { flex-wrap: wrap; }
+.compose-firma { display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; }
+.compose-firma select {
+    max-width: 200px;
+    padding: 4px 6px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--testo);
+    font: inherit;
+    font-size: 13px;
+}
+.compose-firma-gestisci {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: var(--raggio);
+    background: transparent;
+    color: var(--testo-tenue);
+    cursor: pointer;
+}
+.compose-firma-gestisci:hover { background: var(--hover); color: var(--accento); }
+.email-editor .firma-blocco {
+    margin: 2px 0;
+    padding: 4px 6px;
+    border: 1px dashed transparent;
+    border-radius: var(--raggio);
+    cursor: default;
+    user-select: none;
+}
+.email-editor .firma-blocco:hover { border-color: var(--bordo); background: var(--hover); }
+
+/* Finestra */
+.firme-modal { max-width: 1040px; width: 96vw; max-height: 92vh; display: flex; flex-direction: column; }
+.firme-corpo { padding: 14px 20px 18px; overflow-y: auto; color: var(--testo); }
+.firme-nota { margin: 0 0 12px; font-size: 13px; color: var(--testo-secondario); line-height: 1.5; }
+.firme-nota.piccola { display: block; margin: 6px 0 10px; font-size: 12px; color: var(--testo-tenue); }
+.firme-stato { padding: 18px 0; text-align: center; color: var(--testo-tenue); }
+.firme-stato.errore { color: var(--pericolo); }
+
+.firme-corpo label { font-size: 14px; }
+.firme-corpo input[type="text"],
+.firme-corpo input[type="tel"],
+.firme-corpo input[type="email"],
+.firme-corpo input[type="number"],
+.firme-corpo select,
+.firme-corpo textarea {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--testo);
+    font: inherit;
+    font-weight: normal;
+    min-width: 0;
+    box-sizing: border-box;
+}
+.firme-corpo input[type="color"] {
+    width: 100%;
+    height: 35px;
+    padding: 2px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+}
+.firme-casella { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-weight: 700; }
+.firme-casella select { max-width: 420px; }
+
+.firme-colonne { display: grid; grid-template-columns: 220px 1fr; gap: 18px; align-items: start; }
+.firme-sinistra { display: flex; flex-direction: column; gap: 10px; }
+.firme-elenco { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.firme-elenco li[data-id] {
+    padding: 8px 10px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+.firme-elenco li[data-id]:hover { background: var(--hover); }
+.firme-elenco li.attiva { border-color: var(--accento); background: var(--selezione); }
+.firme-elenco strong { display: block; font-size: 14px; }
+.firme-elenco small { display: block; margin-top: 2px; font-size: 12px; color: var(--testo-tenue); }
+.firme-vuoto { padding: 8px 0; font-size: 13px; color: var(--testo-tenue); }
+
+.firme-form { display: flex; flex-direction: column; min-width: 0; }
+.firme-nome { display: flex; flex-direction: column; gap: 4px; font-weight: 700; margin-bottom: 12px; }
+.firme-schede { display: flex; gap: 4px; border-bottom: 1px solid var(--bordo); margin-bottom: 4px; }
+.firme-schede button {
+    padding: 7px 14px;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: var(--raggio) var(--raggio) 0 0;
+    background: transparent;
+    color: var(--testo-secondario);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: -1px;
+}
+.firme-schede button:hover { color: var(--accento); }
+.firme-schede button.attiva { border-color: var(--bordo); background: var(--bianco); color: var(--accento); font-weight: 700; }
+.firme-due { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.firme-due label, .firme-riga { display: flex; flex-direction: column; gap: 4px; font-weight: 700; }
+.firme-riga { margin-top: 10px; }
+.firme-scelta { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; cursor: pointer; }
+.firme-scelta input { margin: 0; flex-shrink: 0; }
+.firme-corpo fieldset {
+    margin: 12px 0 0;
+    padding: 10px 14px 12px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+}
+.firme-corpo legend { padding: 0 6px; font-weight: 700; }
+
+.firme-logo-scelto, .firme-immagini li { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.firme-logo-scelto img, .firme-immagini img {
+    width: 56px;
+    height: 40px;
+    object-fit: contain;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: #fff;
+    flex-shrink: 0;
+}
+.firme-logo-scelto span, .firme-immagini li span { flex: 1; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.firme-logo-scelto small, .firme-immagini small { display: block; color: var(--testo-tenue); font-size: 12px; }
+.firme-immagini ul { list-style: none; margin: 0; padding: 0; }
+.firme-immagini .archivia-btn-secondario { padding: 4px 10px; font-size: 13px; }
+
+.firme-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--bordo);
+    border-bottom: 0;
+    border-radius: var(--raggio) var(--raggio) 0 0;
+    background: var(--pannello);
+}
+.firme-barra button, .firme-colore-testo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: var(--raggio);
+    background: transparent;
+    color: var(--testo-secondario);
+    cursor: pointer;
+    position: relative;
+}
+.firme-barra button:hover, .firme-colore-testo:hover { background: var(--hover); color: var(--accento); }
+.firme-colore-testo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.firme-barra select { width: auto; padding: 4px 6px; font-size: 13px; }
+.firme-editor {
+    min-height: 140px;
+    max-height: 320px;
+    overflow: auto;
+    padding: 10px 12px;
+    border: 1px solid var(--bordo);
+    border-radius: 0 0 var(--raggio) var(--raggio);
+    background: #fff;
+    color: #333;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.firme-editor:focus { outline: 2px solid var(--accento); outline-offset: -1px; }
+.firme-sorgente { font-family: 'Consolas', 'Menlo', monospace !important; font-size: 12.5px !important; line-height: 1.45; resize: vertical; }
+
+.firme-anteprima-titolo {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--testo-secondario);
+}
+.firme-peso { font-weight: normal; color: var(--testo-tenue); }
+.firme-peso.pesante { color: var(--pericolo); font-weight: 700; }
+.firme-anteprima {
+    width: 100%;
+    height: 170px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: #fff;
+}
+.firme-errore {
+    margin: 12px 0 0;
+    padding: 8px 10px;
+    border-radius: var(--raggio);
+    background: var(--pericolo-chiaro);
+    color: var(--pericolo);
+    font-size: 13px;
+}
+.firme-azioni { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.firme-spazio { flex: 1; }
+.firme-elimina:hover { color: var(--pericolo); border-color: var(--pericolo); }
+.firme-predefinite { margin-top: 18px !important; }
+
+@media (max-width: 760px) {
+    .firme-corpo { padding: 12px; }
+    .firme-colonne { grid-template-columns: 1fr; }
+    .firme-due { grid-template-columns: 1fr; }
+    .firme-casella { flex-direction: column; align-items: stretch; gap: 4px; }
+    .compose-firma { margin-left: 0; }
+}

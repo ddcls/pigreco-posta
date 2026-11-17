@@ -90,6 +90,29 @@ try {
         throw new Exception($result['error']);
     }
 
+    // Immagini dentro l'email (cid:, per esempio il logo di una firma): nel
+    // corpo HTML diventano data:, l'unico modo di vederle nell'iframe senza
+    // un'altra richiesta. Restano anche tra gli allegati (inline = true).
+    if (!empty($result['html_body']) && !empty($result['attachments'])) {
+        $tipiImmagine = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+        foreach ($result['attachments'] as &$allegato) {
+            $cid = trim((string)($allegato['content_id'] ?? ''));
+            $tipo = strtolower((string)($allegato['content_type'] ?? ''));
+            if ($cid === '' || !in_array($tipo, $tipiImmagine, true) || (int)($allegato['size'] ?? 0) > 2 * 1024 * 1024) {
+                continue;
+            }
+            $result['html_body'] = preg_replace(
+                '/cid:' . preg_quote($cid, '/') . '(?=["\'\s>)])/i',
+                'data:' . $tipo . ';base64,' . $allegato['content'],
+                $result['html_body'], -1, $sostituiti
+            );
+            if ($sostituiti) {
+                $allegato['inline'] = true;
+            }
+        }
+        unset($allegato);
+    }
+
     $result['file'] = (string)$uid;
     $result['file_size'] = strlen($raw);
     $result['folder'] = $folder;

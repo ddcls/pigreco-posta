@@ -133,9 +133,21 @@ function getCleanEmailHtml() {
     
     // Clona l'editor per pulizia
     const clone = emailEditor.cloneNode(true);
-    
+
+    // La firma (firme.js, blocco [data-firma]) è già HTML per le email, con
+    // stili e tabelle che cleanHtmlForEmail toglierebbe: resta com'è, al suo posto.
+    const firme = [];
+    clone.querySelectorAll('[data-firma]').forEach((blocco) => {
+        blocco.removeAttribute('contenteditable');
+        blocco.removeAttribute('class');
+        blocco.removeAttribute('title');
+        firme.push(blocco.outerHTML);
+        blocco.replaceWith(document.createTextNode(`\u0001FIRMA${firme.length - 1}\u0001`));
+    });
+
     // Pulisci HTML per compatibilità email
-    const cleanHtml = cleanHtmlForEmail(clone.innerHTML);
+    let cleanHtml = cleanHtmlForEmail(clone.innerHTML);
+    firme.forEach((html, i) => { cleanHtml = cleanHtml.replace(`\u0001FIRMA${i}\u0001`, () => html); });
     return cleanHtml;
 }
 
@@ -230,8 +242,13 @@ function clearFormatting() {
     if (!emailEditor) return;
     
     if (confirm('Cancellare tutta la formattazione? Il testo rimarrà ma perderà stili e formattazione.')) {
-        const textOnly = emailEditor.textContent || emailEditor.innerText;
+        // La firma resta com'è: si cambia o si toglie dalla scelta "Firma"
+        const copia = emailEditor.cloneNode(true);
+        const firme = Array.from(copia.querySelectorAll('[data-firma]'));
+        firme.forEach(f => f.remove());
+        const textOnly = copia.textContent || copia.innerText;
         emailEditor.innerHTML = `<div>${escapeHtml(textOnly).replace(/\n/g, '<br>')}</div>`;
+        firme.forEach(f => emailEditor.appendChild(f));
         emailEditor.focus();
         updateHiddenTextarea();
     }
