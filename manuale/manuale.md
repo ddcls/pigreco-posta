@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.6 · novembre 2026
+Versione 1.6.1 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -396,7 +396,8 @@ negli inoltri **sopra** il messaggio citato. Non si modifica dentro l'email: dal
   anche senza "scaricare le immagini". Un'immagine grande viene rimpicciolita (al massimo 600
   pixel di larghezza); oltre 100 KB l'anteprima avverte che ogni email diventa più pesante.
 - Leggendo un'email, le immagini che stanno nel testo (come i loghi delle firme) si vedono al
-  loro posto e non compaiono tra gli allegati.
+  loro posto e non compaiono tra gli allegati. Rispondendo o inoltrando, quelle immagini partono
+  dentro l'email, così chi riceve le vede anche con Gmail e Outlook.
 
 ---
 

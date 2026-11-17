@@ -141,6 +141,46 @@ try {
 // ==================== FUNZIONI DI SUPPORTO ====================
 
 /**
+ * Immagini scritte nel corpo come data: (quelle di un'email citata o
+ * inoltrata: get_email_detail.php mostra così le immagini cid:) messe dentro
+ * l'email come parti incorporate (cid:), perché Gmail e diverse versioni di
+ * Outlook non mostrano le immagini data:. Immagini uguali diventano una
+ * sola parte; quelle oltre 10 MB o non decodificabili restano come sono.
+ *
+ * @return string il corpo con gli indirizzi cid:
+ */
+function incorporaImmaginiData($html, PHPMailer $mail) {
+    $tipi = ['png' => 'png', 'jpeg' => 'jpg', 'jpg' => 'jpg', 'gif' => 'gif', 'webp' => 'webp'];
+    $giaIncorporate = [];
+    $numero = 0;
+    $risultato = preg_replace_callback(
+        '/(\ssrc\s*=\s*)(["\'])data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+\/=\s]+)\2/i',
+        function ($m) use ($tipi, $mail, &$giaIncorporate, &$numero) {
+            $tipo = strtolower($m[3]);
+            $byte = base64_decode(preg_replace('/\s+/', '', $m[4]), true);
+            if ($byte === false || $byte === '' || strlen($byte) > 10 * 1024 * 1024) {
+                return $m[0];
+            }
+            $impronta = sha1($byte);
+            if (!isset($giaIncorporate[$impronta])) {
+                $cid = 'immagine' . (++$numero) . '.' . bin2hex(random_bytes(8)) . '@pigreco-posta';
+                $mail->addStringEmbeddedImage($byte, $cid, 'immagine' . $numero . '.' . $tipi[$tipo], 'base64',
+                    'image/' . ($tipo === 'jpg' ? 'jpeg' : $tipo));
+                $giaIncorporate[$impronta] = $cid;
+            }
+            return $m[1] . '"cid:' . $giaIncorporate[$impronta] . '"';
+        },
+        $html
+    );
+    // Errore di PCRE (corpo enorme): meglio il corpo com'era che un corpo vuoto
+    if ($risultato === null) {
+        error_log('send_email.php: immagini data: non incorporate: ' . preg_last_error_msg());
+        return $html;
+    }
+    return $risultato;
+}
+
+/**
  * Recupera via IMAP gli allegati dell'email originale da inoltrare.
  *
  * @param string     $forwardRef       Formato "account:cartella:uid"
@@ -369,6 +409,8 @@ try {
             } catch (Throwable $e) {
                 error_log('send_email.php: immagini della firma non incorporate: ' . $e->getMessage());
             }
+            // Immagini dell'email citata o inoltrata (data:): dentro il messaggio come cid:
+            $body = incorporaImmaginiData($body, $mail);
         }
         $mail->isHTML(true);
         $mail->Body = $body;
