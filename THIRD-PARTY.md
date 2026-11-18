@@ -10,6 +10,7 @@ PiGreco Posta is licensed under the AGPL-3.0 (see [LICENSE](LICENSE)). It bundle
 | [Font Awesome Free 6.4.0](https://fontawesome.com) | `webmail/fontawesome/` | Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT ([details](https://fontawesome.com/license/free)) |
 | [DOMPurify 3.2.4](https://github.com/cure53/DOMPurify) | `webmail/vendor/dompurify/` | Apache-2.0 or MPL-2.0 (`webmail/vendor/dompurify/LICENSE`) |
 | [QR Code Generator 1.4.4](https://github.com/kazuhikoarase/qrcode-generator) (Kazuhiko Arase) | `webmail/vendor/qrcode-generator/` | MIT (`webmail/vendor/qrcode-generator/LICENSE`) |
+| FatturaPA stylesheet `FS122.xsl` 1.2.2 ("Foglio di stile FatturaPA ordinaria", [Agenzia delle Entrate / fatturapa.gov.it](https://www.fatturapa.gov.it/it/norme-e-regole/documentazione-fattura-elettronica/formato-fatturapa/)) | `webmail/lib/fatturapa/` | Published by the Italian Revenue Agency for displaying electronic invoices; unchanged |
 
 ## Installed in the Docker images (not redistributed in this repository)
 

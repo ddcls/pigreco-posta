@@ -1,0 +1,137 @@
+/*
+ * PiGreco Posta
+ * Copyright (C) 2026 Criscione Enzo
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Questo programma è software libero: puoi ridistribuirlo e/o modificarlo
+ * secondo i termini della GNU Affero General Public License come pubblicata
+ * dalla Free Software Foundation, versione 3 della licenza o (a tua scelta)
+ * qualsiasi versione successiva.
+ *
+ * Questo programma è distribuito nella speranza che sia utile, ma SENZA
+ * ALCUNA GARANZIA; senza neppure la garanzia implicita di COMMERCIABILITÀ
+ * o di IDONEITÀ PER UN PARTICOLARE SCOPO. Vedi la GNU Affero General
+ * Public License per i dettagli.
+ *
+ * Dovresti aver ricevuto una copia della GNU Affero General Public License
+ * insieme a questo programma (file LICENSE). In caso contrario, vedi
+ * <https://www.gnu.org/licenses/>.
+ */
+
+
+/* Allegati XML leggibili (xml-allegati.js) */
+.xml-overlay { z-index: 10004; }
+.xml-modal { max-width: 760px; width: 96vw; max-height: 92vh; display: flex; flex-direction: column; }
+.xml-corpo { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; color: var(--testo); }
+.xml-stato { padding: 24px 0; text-align: center; color: var(--testo-tenue); }
+.xml-stato.errore { color: var(--pericolo); }
+
+.xml-esito {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    border-radius: var(--raggio);
+    border: 1px solid var(--bordo);
+    background: var(--pannello);
+}
+.xml-esito > i { font-size: 26px; line-height: 1; margin-top: 2px; color: var(--accento); }
+.xml-esito-ok { background: var(--ok-chiaro); border-color: var(--ok); }
+.xml-esito-ok > i { color: var(--ok); }
+.xml-esito-errore { background: var(--pericolo-chiaro); border-color: var(--pericolo); }
+.xml-esito-errore > i { color: var(--pericolo); }
+.xml-esito-attenzione { background: var(--avviso-chiaro); border-color: #e0b000; }
+.xml-esito-attenzione > i { color: #b8860b; }
+.xml-esito-titolo { font-family: var(--font-titoli); font-size: 19px; font-weight: 700; }
+.xml-esito-frase { margin-top: 4px; font-size: 14px; color: var(--testo-secondario); line-height: 1.45; }
+.xml-esito-testi { flex: 1; min-width: 0; }
+.xml-impagina {
+    align-self: center;
+    flex-shrink: 0;
+    padding: 7px 12px;
+    border: 1px solid var(--accento);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--accento);
+    font-size: 13px;
+    cursor: pointer;
+}
+.xml-impagina:hover { background: var(--accento); color: #fff; }
+
+/* Fattura impaginata: finestra larga, la pagina dell'Agenzia in un iframe */
+.xml-modal.xml-larga { max-width: 1180px; height: 92vh; }
+.xml-modal.xml-larga .xml-corpo { padding: 0; display: flex; }
+.xml-fattura { flex: 1; width: 100%; border: 0; background: #fff; }
+
+.xml-avviso {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-radius: var(--raggio);
+    background: var(--avviso-chiaro);
+    font-size: 13px;
+    color: var(--testo-secondario);
+}
+
+.xml-righe {
+    display: grid;
+    grid-template-columns: minmax(120px, max-content) 1fr;
+    gap: 6px 16px;
+    margin: 0 0 14px;
+    font-size: 14px;
+}
+.xml-righe dt { color: var(--testo-tenue); }
+.xml-righe dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.xml-sezione {
+    margin: 18px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--bordo);
+    font-size: 14px;
+    color: var(--accento);
+}
+
+.xml-testo { margin-top: 16px; }
+.xml-testo summary { cursor: pointer; color: var(--accento); font-size: 14px; }
+.xml-testo pre {
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    max-height: 50vh;
+    overflow: auto;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--pannello);
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.xml-piede {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 20px 14px;
+    border-top: 1px solid var(--bordo);
+}
+.xml-piede button {
+    padding: 8px 14px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--testo);
+    font-size: 14px;
+    cursor: pointer;
+}
+.xml-piede .xml-scarica { background: var(--accento); border-color: var(--accento); color: #fff; }
+.xml-piede button:hover { filter: brightness(.95); }
+.xml-piede .xml-spazio { flex: 1; }
+.xml-piede [hidden] { display: none; }
+
+@media (max-width: 600px) {
+    .xml-corpo { padding: 12px 14px; }
+    .xml-esito { flex-wrap: wrap; }
+    .xml-impagina { width: 100%; }
+    .xml-righe { grid-template-columns: 1fr; gap: 2px; }
+    .xml-righe dd { margin-bottom: 8px; }
+}
