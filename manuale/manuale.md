@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.6.1 · novembre 2026
+Versione 1.7 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -259,8 +259,22 @@ testo e allegati.
 2. Scegli la cartella e fai clic su un'email: si apre a destra e diventa "letta".
 3. Il testo si vede come è stato scritto (**HTML**); con **Testo** lo vedi in forma semplice. I
    collegamenti nel testo si aprono in una nuova scheda.
-4. Gli allegati sono in fondo: 👁 mostra l'anteprima di immagini e PDF, ⬇ scarica il file,
-   **Scarica tutti (.zip)** li scarica insieme.
+4. Gli allegati sono in fondo: 👁 mostra l'anteprima di immagini, PDF e file XML, ⬇ scarica il
+   file, **Scarica tutti (.zip)** li scarica insieme.
+
+**Ricevute PEC, notifiche e fatture elettroniche (file XML).** Con 👁 su un allegato `.xml` o
+`.xml.p7m` lo leggi senza scaricarlo, scritto in italiano chiaro:
+
+| Allegato | Cosa vedi |
+|---|---|
+| `daticert.xml` (in ogni PEC e ricevuta) | Che ricevuta è (accettazione, avvenuta consegna, mancata consegna…), il motivo se c'è un errore, mittente, destinatari (PEC o email normale), oggetto, data e ora, gestore |
+| Notifiche del Sistema di Interscambio (nel nome `_NE_`, `_RC_`, `_MC_`, `_NS_`, `_DT_`, `_AT_`, `_EC_`, `_SE_`, `_MT_`) | Cosa è successo alla fattura: accettata o rifiutata dal cliente, consegnata, non recapitata, scartata con l'elenco degli errori… |
+| Fattura elettronica (anche firmata `.p7m`) | Fornitore, cliente, totale, pagamento e scadenza, righe, riepilogo IVA. **Fattura impaginata** la mostra come nel portale dell'Agenzia delle Entrate; da lì **Apri in una nuova scheda** per stamparla o salvarla in PDF |
+| Qualsiasi altro XML | Il testo ordinato |
+
+**Mostra l'XML** fa vedere il file originale. Dei file firmati (`.p7m`) si legge il contenuto, ma
+la firma non viene controllata: per verificarla scaricali e aprili con il programma della firma
+digitale.
 
 I pulsanti sopra l'email:
 
