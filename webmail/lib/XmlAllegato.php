@@ -30,7 +30,9 @@
  *   NotificaEsitoCommittente, ScartoEsitoCommittente, FileMetadati
  *                    → notifiche del Sistema di Interscambio (RC, MC, NS, NE,
  *                      DT, AT, EC, SE, MT)
- * - FatturaElettronica / FatturaElettronicaSemplificata → riepilogo della fattura
+ * - FatturaElettronica / FatturaElettronicaSemplificata → riepilogo della fattura;
+ *   la FatturaElettronica anche impaginata con il foglio di stile ufficiale
+ *   dell'Agenzia delle Entrate (fatturapa/FS122.xsl, impagina())
  * - qualsiasi altro XML → solo il testo ordinato
  *
  * I .xml.p7m (firmati CAdES) vengono aperti con `openssl cms` senza
@@ -44,6 +46,11 @@
 final class XmlAllegato
 {
     public const MAX_BYTE = 5 * 1024 * 1024;
+
+    /** Namespace della FatturaPA 1.2, l'unico che FS122.xsl conosce. */
+    private const NS_FATTURA_12 = 'http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2';
+
+    private const FOGLIO_FATTURA = __DIR__ . '/fatturapa/FS122.xsl';
 
     /** Righe della fattura mostrate al massimo (le altre sono nell'XML). */
     private const MAX_LINEE = 60;
@@ -133,6 +140,7 @@ final class XmlAllegato
             'avvisi' => [],
             'testo' => '',
             'firmato' => false,
+            'impaginabile' => false,
         ];
 
         if (strlen($contenuto) > self::MAX_BYTE) {
@@ -140,37 +148,12 @@ final class XmlAllegato
             return $risultato;
         }
 
-        if (preg_match('/\.p7m$/i', $nome)) {
-            $estratto = self::estraiDaP7m($contenuto);
-            if ($estratto === null) {
-                $risultato['avvisi'][] = 'Non è stato possibile aprire il file firmato (.p7m): scaricalo e aprilo con il programma della firma digitale.';
-                return $risultato;
-            }
-            $contenuto = $estratto;
-            $risultato['firmato'] = true;
-        }
-
-        // Togli il BOM: DOMDocument lo accetta, ma il testo mostrato no
-        if (strncmp($contenuto, "\xEF\xBB\xBF", 3) === 0) {
-            $contenuto = substr($contenuto, 3);
-        }
-
-        if (preg_match('/<!DOCTYPE/i', $contenuto)) {
-            $risultato['avvisi'][] = 'Il file contiene una dichiarazione DOCTYPE: per sicurezza viene mostrato solo il testo, senza interpretarlo.';
-            $risultato['testo'] = self::testoUtf8($contenuto);
-            return $risultato;
-        }
-
-        $doc = new DOMDocument();
-        $doc->preserveWhiteSpace = false;
-        $precedente = libxml_use_internal_errors(true);
-        $ok = $doc->loadXML($contenuto, LIBXML_NONET | LIBXML_NOCDATA);
-        libxml_clear_errors();
-        libxml_use_internal_errors($precedente);
-
-        if (!$ok || !$doc->documentElement) {
-            $risultato['avvisi'][] = 'Il file non è un XML valido: viene mostrato così com\'è.';
-            $risultato['testo'] = self::testoUtf8($contenuto);
+        $preparato = self::prepara($contenuto, $nome);
+        $risultato['firmato'] = $preparato['firmato'];
+        array_push($risultato['avvisi'], ...$preparato['avvisi']);
+        $doc = $preparato['doc'];
+        if ($doc === null) {
+            $risultato['testo'] = $preparato['testo'];
             return $risultato;
         }
 
@@ -188,6 +171,9 @@ final class XmlAllegato
             'FatturaElettronica', 'FatturaElettronicaSemplificata' => self::fattura($radice),
             default => null,
         };
+        if ($radice->localName === 'FatturaElettronica' && self::xsltDisponibile()) {
+            $risultato['impaginabile'] = true;
+        }
 
         if ($interpretato !== null) {
             $risultato = array_merge($risultato, $interpretato);
@@ -198,6 +184,103 @@ final class XmlAllegato
             $risultato['avvisi'][] = 'File firmato digitalmente (.p7m): qui si legge il contenuto, la firma non viene verificata.';
         }
         return $risultato;
+    }
+
+    /**
+     * p7m aperto, BOM tolto, DOCTYPE rifiutato, XML letto senza rete.
+     *
+     * @return array{doc:?DOMDocument, testo:string, firmato:bool, avvisi:list<string>}
+     */
+    private static function prepara(string $contenuto, string $nome): array
+    {
+        $esito = ['doc' => null, 'testo' => '', 'firmato' => false, 'avvisi' => []];
+
+        if (preg_match('/\.p7m$/i', $nome)) {
+            $estratto = self::estraiDaP7m($contenuto);
+            if ($estratto === null) {
+                $esito['avvisi'][] = 'Non è stato possibile aprire il file firmato (.p7m): scaricalo e aprilo con il programma della firma digitale.';
+                return $esito;
+            }
+            $contenuto = $estratto;
+            $esito['firmato'] = true;
+        }
+
+        // Togli il BOM: DOMDocument lo accetta, ma il testo mostrato no
+        if (strncmp($contenuto, "\xEF\xBB\xBF", 3) === 0) {
+            $contenuto = substr($contenuto, 3);
+        }
+
+        if (preg_match('/<!DOCTYPE/i', $contenuto)) {
+            $esito['avvisi'][] = 'Il file contiene una dichiarazione DOCTYPE: per sicurezza viene mostrato solo il testo, senza interpretarlo.';
+            $esito['testo'] = self::testoUtf8($contenuto);
+            return $esito;
+        }
+
+        $doc = new DOMDocument();
+        $doc->preserveWhiteSpace = false;
+        $precedente = libxml_use_internal_errors(true);
+        $ok = $doc->loadXML($contenuto, LIBXML_NONET | LIBXML_NOCDATA);
+        libxml_clear_errors();
+        libxml_use_internal_errors($precedente);
+
+        if (!$ok || !$doc->documentElement) {
+            $esito['avvisi'][] = 'Il file non è un XML valido: viene mostrato così com\'è.';
+            $esito['testo'] = self::testoUtf8($contenuto);
+            return $esito;
+        }
+        $esito['doc'] = $doc;
+        return $esito;
+    }
+
+    public static function xsltDisponibile(): bool
+    {
+        return class_exists('XSLTProcessor') && is_file(self::FOGLIO_FATTURA);
+    }
+
+    /**
+     * La fattura impaginata (HTML) con il foglio di stile ufficiale FS122.xsl,
+     * o null se l'allegato non è una FatturaElettronica leggibile.
+     * Le fatture 1.1 (namespace di fatturapa.gov.it) passano al foglio con il
+     * namespace della 1.2: i nomi degli elementi sono gli stessi.
+     */
+    public static function impagina(string $contenuto, string $nome): ?string
+    {
+        if (strlen($contenuto) > self::MAX_BYTE || !self::xsltDisponibile()) {
+            return null;
+        }
+        $doc = self::prepara($contenuto, $nome)['doc'];
+        if ($doc === null || $doc->documentElement->localName !== 'FatturaElettronica') {
+            return null;
+        }
+
+        $ns = (string)$doc->documentElement->namespaceURI;
+        if ($ns !== self::NS_FATTURA_12) {
+            $xml = (string)$doc->saveXML();
+            $xml = $ns !== ''
+                ? str_replace('"' . $ns . '"', '"' . self::NS_FATTURA_12 . '"', $xml)
+                : $xml;
+            $doc = new DOMDocument();
+            $precedente = libxml_use_internal_errors(true);
+            $ok = $doc->loadXML($xml, LIBXML_NONET);
+            libxml_clear_errors();
+            libxml_use_internal_errors($precedente);
+            if (!$ok || $doc->documentElement->namespaceURI !== self::NS_FATTURA_12) {
+                return null;
+            }
+        }
+
+        $foglio = new DOMDocument();
+        if (!$foglio->load(self::FOGLIO_FATTURA, LIBXML_NONET)) {
+            return null;
+        }
+        $xslt = new XSLTProcessor();
+        // Il foglio è il nostro, ma per sicurezza niente scritture né rete
+        $xslt->setSecurityPrefs(XSL_SECPREF_DEFAULT | XSL_SECPREF_READ_NETWORK);
+        if (!@$xslt->importStylesheet($foglio)) {
+            return null;
+        }
+        $html = @$xslt->transformToXml($doc);
+        return ($html === false || trim($html) === '') ? null : $html;
     }
 
     // ================================================================ PEC

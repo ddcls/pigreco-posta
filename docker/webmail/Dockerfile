@@ -32,15 +32,17 @@ ENV TZ=Europe/Rome
 
 # python3: parsing MIME delle email (email_parser.py, solo libreria standard)
 # client mysql: creazione del database della webmail al primo avvio (entrypoint)
+# libxslt: fatture elettroniche allegate impaginate (estensione xsl, fattura_allegato.php)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     libzip-dev \
+    libxslt1-dev \
     default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN docker-php-ext-install -j$(nproc) mysqli zip
+RUN docker-php-ext-install -j$(nproc) mysqli zip xsl
 
 # remoteip: dietro Caddy o PiGreco Archivio l'IP vero del client (blocco dei
 # tentativi di accesso, registro, reti interne del secondo fattore)

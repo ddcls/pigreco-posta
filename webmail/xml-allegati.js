@@ -25,7 +25,9 @@
  * L'occhio 👁️ sugli allegati .xml e .xml.p7m apre una finestra con:
  * - le ricevute della PEC (daticert.xml) in italiano chiaro;
  * - le notifiche dello SdI (RC, MC, NS, NE, DT, AT, EC, SE, MT);
- * - il riepilogo delle fatture elettroniche (anche firmate .p7m);
+ * - il riepilogo delle fatture elettroniche (anche firmate .p7m) e la fattura
+ *   impaginata con il foglio di stile ufficiale (fattura_allegato.php), in un
+ *   iframe sandbox senza script, o in una nuova scheda per stamparla;
  * - per ogni XML il testo ordinato ("Mostra l'XML") e il pulsante Scarica.
  *
  * Il server manda solo testi: qui vanno nel DOM con textContent, mai come
@@ -49,12 +51,12 @@ const AllegatoXml = {
         this.mostraTitolo(a.nome || 'Allegato XML');
         this.corpo().replaceChildren(this.el('div', 'xml-stato', "Lettura dell'allegato…"));
         this.scarica = () => downloadAttachmentViaFetch(a.user, a.file, String(a.index), a.folder, a.nome);
+        this.parametri = new URLSearchParams({ user: a.user, file: a.file, index: String(a.index), folder: a.folder });
+        this.modoRiepilogo();
         this.overlay.style.display = 'flex';
         this.overlay.querySelector('.btn-close-compose').focus();
 
-        const url = 'xml_allegato.php?' + new URLSearchParams({
-            user: a.user, file: a.file, index: String(a.index), folder: a.folder,
-        });
+        const url = 'xml_allegato.php?' + this.parametri;
         let dati;
         try {
             const risposta = await fetch(url, { credentials: 'same-origin' });
@@ -72,6 +74,8 @@ const AllegatoXml = {
     },
 
     disegna(d) {
+        this.dati = d;
+        this.modoRiepilogo();
         const corpo = this.corpo();
         corpo.replaceChildren();
 
@@ -83,6 +87,14 @@ const AllegatoXml = {
         testi.append(this.el('div', 'xml-esito-titolo', d.titolo || 'File XML'));
         if (d.frase) testi.append(this.el('div', 'xml-esito-frase', d.frase));
         testata.append(icona, testi);
+        if (d.impaginabile) {
+            const pulsante = this.el('button', 'xml-impagina');
+            pulsante.type = 'button';
+            pulsante.innerHTML = '<i class="fas fa-file-invoice"></i> ';
+            pulsante.append('Fattura impaginata');
+            pulsante.addEventListener('click', () => this.mostraImpaginata());
+            testata.append(pulsante);
+        }
         corpo.append(testata);
 
         for (const avviso of d.avvisi || []) {
@@ -103,6 +115,46 @@ const AllegatoXml = {
             dettagli.append(this.el('summary', '', "Mostra l'XML"), this.el('pre', '', d.testo));
             corpo.append(dettagli);
         }
+    },
+
+    /** La fattura come nel portale dell'Agenzia delle Entrate (FS122.xsl). */
+    async mostraImpaginata() {
+        const n = ++this.richiesta;
+        this.overlay.querySelector('.xml-modal').classList.add('xml-larga');
+        this.overlay.querySelector('.xml-riepilogo').hidden = false;
+        this.overlay.querySelector('.xml-scheda').hidden = false;
+        this.corpo().replaceChildren(this.el('div', 'xml-stato', 'Impaginazione della fattura…'));
+        let html = null;
+        let errore = 'Impaginazione non riuscita';
+        try {
+            const risposta = await fetch('fattura_allegato.php?' + this.parametri, { credentials: 'same-origin' });
+            const testo = await risposta.text();
+            if (risposta.ok) html = testo;
+            else errore = new DOMParser().parseFromString(testo, 'text/html').body.textContent.trim() || errore;
+        } catch (err) {
+            errore = 'Connessione non riuscita';
+        }
+        if (n !== this.richiesta || !this.overlay) return;
+        if (html === null) {
+            this.corpo().replaceChildren(this.el('div', 'xml-stato errore', errore));
+            return;
+        }
+        // sandbox vuoto: niente script, niente form, niente navigazione
+        const iframe = document.createElement('iframe');
+        iframe.className = 'xml-fattura';
+        iframe.setAttribute('sandbox', '');
+        iframe.setAttribute('referrerpolicy', 'no-referrer');
+        iframe.title = 'Fattura impaginata';
+        iframe.srcdoc = html;
+        this.corpo().replaceChildren(iframe);
+    },
+
+    /** Torna al riepilogo (pulsanti e larghezza della finestra). */
+    modoRiepilogo() {
+        if (!this.overlay) return;
+        this.overlay.querySelector('.xml-modal').classList.remove('xml-larga');
+        this.overlay.querySelector('.xml-riepilogo').hidden = true;
+        this.overlay.querySelector('.xml-scheda').hidden = true;
     },
 
     tabella(righe) {
@@ -141,6 +193,9 @@ const AllegatoXml = {
                 </div>
                 <div class="xml-corpo"></div>
                 <div class="xml-piede">
+                    <button type="button" class="xml-riepilogo" hidden><i class="fas fa-chevron-left"></i> Riepilogo</button>
+                    <button type="button" class="xml-scheda" hidden title="Per stamparla o salvarla in PDF"><i class="fas fa-up-right-from-square"></i> Apri in una nuova scheda</button>
+                    <span class="xml-spazio"></span>
                     <button type="button" class="xml-scarica"><i class="fas fa-download"></i> Scarica</button>
                     <button type="button" class="xml-chiudi">Chiudi</button>
                 </div>
@@ -148,6 +203,13 @@ const AllegatoXml = {
         overlay.querySelector('.btn-close-compose').addEventListener('click', () => this.chiudi());
         overlay.querySelector('.xml-chiudi').addEventListener('click', () => this.chiudi());
         overlay.querySelector('.xml-scarica').addEventListener('click', () => this.scarica && this.scarica());
+        overlay.querySelector('.xml-riepilogo').addEventListener('click', () => {
+            this.richiesta++;
+            if (this.dati) this.disegna(this.dati);
+        });
+        overlay.querySelector('.xml-scheda').addEventListener('click', () => {
+            window.open('fattura_allegato.php?' + this.parametri, '_blank', 'noopener');
+        });
         overlay.addEventListener('click', (e) => { if (e.target === overlay) this.chiudi(); });
         overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.chiudi(); } });
         document.body.appendChild(overlay);

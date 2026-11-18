@@ -56,7 +56,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="stylesheet" href="cartelle.css?v=1">
     <link rel="stylesheet" href="ricerca.css?v=1">
     <link rel="stylesheet" href="telefono.css?v=1">
-    <link rel="stylesheet" href="xml-allegati.css?v=1">
+    <link rel="stylesheet" href="xml-allegati.css?v=2">
     <link rel="stylesheet" href="fontawesome/css/all.min.css">
     <script>
         // Id dell'account email selezionato (valorizzato da viewNewEmail; altrimenti
@@ -1030,7 +1030,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <script src="firme.js?v=1"></script>
     <script src="tema.js?v=1"></script>
     <script src="telefono.js?v=1"></script>
-    <script src="xml-allegati.js?v=1"></script>
+    <script src="xml-allegati.js?v=2"></script>
         
     <script>
         let currentEmailFile = '';

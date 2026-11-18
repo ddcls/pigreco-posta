@@ -45,6 +45,24 @@
 .xml-esito-attenzione > i { color: #b8860b; }
 .xml-esito-titolo { font-family: var(--font-titoli); font-size: 19px; font-weight: 700; }
 .xml-esito-frase { margin-top: 4px; font-size: 14px; color: var(--testo-secondario); line-height: 1.45; }
+.xml-esito-testi { flex: 1; min-width: 0; }
+.xml-impagina {
+    align-self: center;
+    flex-shrink: 0;
+    padding: 7px 12px;
+    border: 1px solid var(--accento);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--accento);
+    font-size: 13px;
+    cursor: pointer;
+}
+.xml-impagina:hover { background: var(--accento); color: #fff; }
+
+/* Fattura impaginata: finestra larga, la pagina dell'Agenzia in un iframe */
+.xml-modal.xml-larga { max-width: 1180px; height: 92vh; }
+.xml-modal.xml-larga .xml-corpo { padding: 0; display: flex; }
+.xml-fattura { flex: 1; width: 100%; border: 0; background: #fff; }
 
 .xml-avviso {
     margin: 0 0 12px;
@@ -90,6 +108,7 @@
 
 .xml-piede {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
     padding: 10px 20px 14px;
@@ -106,9 +125,13 @@
 }
 .xml-piede .xml-scarica { background: var(--accento); border-color: var(--accento); color: #fff; }
 .xml-piede button:hover { filter: brightness(.95); }
+.xml-piede .xml-spazio { flex: 1; }
+.xml-piede [hidden] { display: none; }
 
 @media (max-width: 600px) {
     .xml-corpo { padding: 12px 14px; }
+    .xml-esito { flex-wrap: wrap; }
+    .xml-impagina { width: 100%; }
     .xml-righe { grid-template-columns: 1fr; gap: 2px; }
     .xml-righe dd { margin-bottom: 8px; }
 }
