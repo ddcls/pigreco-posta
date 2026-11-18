@@ -56,6 +56,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="stylesheet" href="cartelle.css?v=1">
     <link rel="stylesheet" href="ricerca.css?v=1">
     <link rel="stylesheet" href="telefono.css?v=1">
+    <link rel="stylesheet" href="xml-allegati.css?v=1">
     <link rel="stylesheet" href="fontawesome/css/all.min.css">
     <script>
         // Id dell'account email selezionato (valorizzato da viewNewEmail; altrimenti
@@ -1029,6 +1030,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <script src="firme.js?v=1"></script>
     <script src="tema.js?v=1"></script>
     <script src="telefono.js?v=1"></script>
+    <script src="xml-allegati.js?v=1"></script>
         
     <script>
         let currentEmailFile = '';
@@ -1733,7 +1735,8 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                             const size = formatFileSize(att.size);
                             const fileType = getFileType(att.content_type);
                             const fileExt = getFileExtension(safeName);
-                            const canPreview = isPreviewable(fileExt);
+                            // XML (ricevute PEC, notifiche SdI, fatture, anche .xml.p7m): xml-allegati.js
+                            const canPreview = isPreviewable(fileExt) || AllegatoXml.eXml(safeName);
 
                             attachmentsHtml += '<div class="attachment-card' + (canPreview ? ' previewable' : '') + '">';
                             attachmentsHtml += '<div class="attachment-icon">' + icon + '</div>';
@@ -2856,6 +2859,14 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                         attachmentFolder, 
                         index
                     );
+                } else if (AllegatoXml.eXml(attachment.filename)) {
+                    AllegatoXml.apri({
+                        user: requestUser,
+                        file: currentEmailFile,
+                        folder: attachmentFolder,
+                        index,
+                        nome: attachment.filename,
+                    });
                 } else {
                     showToast(`Anteprima non disponibile per: .${fileExt}`, 'info');
                 }
