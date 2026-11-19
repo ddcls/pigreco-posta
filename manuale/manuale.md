@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.10 · novembre 2026
+Versione 1.11 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -257,6 +257,10 @@ testo e allegati.
 1. Scegli la casella nel menu **Account** (vedi solo le caselle che l'amministratore ti ha
    assegnato).
 2. Scegli la cartella e fai clic su un'email: si apre a destra e diventa "letta".
+   Sopra l'elenco, **Tutte** / **Non lette** / **Lette** mostra solo le email di quel tipo; il
+   numero in alto e le pagine contano solo quelle. Un'email che apri in **Non lette** resta
+   nell'elenco finché non cambi cartella o pagina. La scelta resta anche quando riapri la
+   webmail; durante una ricerca il filtro non vale (la ricerca guarda tutte le email).
 3. Il testo si vede come è stato scritto (**HTML**); con **Testo** lo vedi in forma semplice. I
    collegamenti nel testo si aprono in una nuova scheda.
 4. Gli allegati sono in fondo: 👁 mostra l'anteprima di immagini, PDF e file XML, ⬇ scarica il
@@ -382,6 +386,15 @@ destra scrive una nuova email.
 
 Con **–** in alto la finestra si riduce in basso a destra, per consultare altre email mentre
 scrivi.
+
+Per avere più spazio per scrivere:
+
+- **⛶** (accanto a **–**) porta la finestra a **tutto lo schermo**; premuto di nuovo la riporta
+  alla misura di prima;
+- trascinando l'**angolo in basso a destra** la finestra si allarga o si stringe quanto vuoi.
+
+La misura scelta vale per le email nuove, le risposte e gli inoltri e resta anche le volte
+dopo, su quel computer. Sul telefono la finestra occupa già tutto lo schermo.
 
 **Le bozze**
 

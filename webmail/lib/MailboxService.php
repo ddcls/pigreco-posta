@@ -432,11 +432,15 @@ class MailboxService {
 
     // ==================== LETTURA ====================
 
+    /** Filtro Tutte / Non lette / Lette dell'elenco → criterio IMAP SEARCH. */
+    const FILTRI_LETTURA = ['tutte' => 'ALL', 'non_lette' => 'UNSEEN', 'lette' => 'SEEN'];
+
     /**
      * Elenco paginato, dal più recente (ordine di arrivo), nello stesso
      * formato restituito in precedenza da get_emails.php.
+     * $stato: 'tutte' (predefinito), 'non_lette' o 'lette' (filtro dell'elenco).
      */
-    public function listMessages($logical, $page, $limit) {
+    public function listMessages($logical, $page, $limit, $stato = 'tutte') {
         $offset = ($page - 1) * $limit;
         $result = [
             'emails' => [], 'total' => 0, 'new_count' => 0, 'limit' => $limit,
@@ -449,7 +453,7 @@ class MailboxService {
         }
 
         $imap = $this->imap();
-        $uids = $this->newestFirst('ALL');
+        $uids = $this->newestFirst(self::FILTRI_LETTURA[$stato] ?? 'ALL');
         $result['total'] = count($uids);
         $result['new_count'] = count($imap->uidSearch('UNSEEN'));
         $result['total_pages'] = $limit > 0 ? (int)ceil($result['total'] / $limit) : 1;

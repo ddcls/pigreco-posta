@@ -66,7 +66,13 @@ try {
         throw new Exception('Account non valido o non autorizzato');
     }
 
-    $result = $mailbox->listMessages($folder, $page, $limit);
+    // Filtro dell'elenco: valori sconosciuti = tutte
+    $stato = requestParam(['stato'], 'tutte');
+    if (!isset(MailboxService::FILTRI_LETTURA[$stato])) {
+        $stato = 'tutte';
+    }
+
+    $result = $mailbox->listMessages($folder, $page, $limit, $stato);
     $mailbox->close();
 
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);

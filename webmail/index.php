@@ -217,6 +217,12 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
         <section class="sidebar" id="sidebar">
             <div class="email-count">
                 <span id="emailCount">0 email</span>
+                <!-- Filtro dell'elenco (cambiaFiltroLettura): lo stato si chiede al server, conteggio e pagine restano giusti -->
+                <div class="filtro-lettura" id="filtroLettura" role="group" aria-label="Mostra">
+                    <button type="button" data-stato="tutte" class="active" onclick="cambiaFiltroLettura('tutte')">Tutte</button>
+                    <button type="button" data-stato="non_lette" onclick="cambiaFiltroLettura('non_lette')">Non lette</button>
+                    <button type="button" data-stato="lette" onclick="cambiaFiltroLettura('lette')">Lette</button>
+                </div>
             </div>
 
             <div class="sidebar-content">
@@ -478,9 +484,14 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
 <!-- ==================== COMPOSE EMAIL MODAL ==================== -->
 <div id="composeModal" class="compose-modal-overlay" style="display:none;">
     <div class="compose-modal compose-modal-scrivi">
+        <!-- Angolo per allargare la finestra trascinando (iniziaRidimensionaCompose) -->
+        <div class="compose-ridimensiona" id="composeRidimensiona" title="Trascina per allargare la finestra"></div>
         <div class="compose-modal-header" id="composeModalHeader" onclick="restoreComposeModal()">
             <h3 id="composeModalTitle"><i class="fas fa-edit"></i> Nuova email</h3>
             <div class="compose-modal-header-azioni">
+                <button class="btn-minimize-compose btn-ingrandisci-compose" id="btnIngrandisciCompose" onclick="event.stopPropagation(); toggleIngrandisciCompose()" title="Ingrandisci">
+                    <i class="fas fa-expand"></i>
+                </button>
                 <button class="btn-minimize-compose" id="btnMinimizeCompose" onclick="event.stopPropagation(); toggleMinimizeCompose()" title="Riduci">
                     <i class="fas fa-minus"></i>
                 </button>
@@ -1049,6 +1060,27 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
         let currentPage = 1;
         let emailsPerPage = 20;
         let totalEmails = 0;
+        // Filtro Tutte / Non lette / Lette dell'elenco, ricordato nel browser
+        const FILTRI_LETTURA = { tutte: 'email', non_lette: 'non lette', lette: 'lette' };
+        let filtroLettura = 'tutte';
+        try {
+            const salvato = localStorage.getItem('webmail.filtroLettura');
+            if (salvato && FILTRI_LETTURA[salvato]) filtroLettura = salvato;
+        } catch (e) { /* storage non disponibile: si parte da Tutte */ }
+
+        function mostraFiltroLettura() {
+            document.querySelectorAll('#filtroLettura button').forEach(b =>
+                b.classList.toggle('active', b.dataset.stato === filtroLettura));
+        }
+
+        function cambiaFiltroLettura(stato) {
+            if (!FILTRI_LETTURA[stato] || stato === filtroLettura) return;
+            filtroLettura = stato;
+            try { localStorage.setItem('webmail.filtroLettura', stato); } catch (e) { /* niente */ }
+            mostraFiltroLettura();
+            loadEmails(1);
+        }
+        document.addEventListener('DOMContentLoaded', mostraFiltroLettura);
         let totalPages = 1;
         
         // Variabile per la cartella selezionata
@@ -1364,7 +1396,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             fetch('get_emails.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `user=${encodeURIComponent(requestUser)}&page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}&folder=${encodeURIComponent(folderToUse)}`
+                body: `user=${encodeURIComponent(requestUser)}&page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}&folder=${encodeURIComponent(folderToUse)}&stato=${encodeURIComponent(filtroLettura)}`
             })
             .then(response => {
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1373,6 +1405,14 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             .then(data => {
                 if (loading) loading.style.display = 'none';
                 const loadTime = ((Date.now() - startTime) / 1000).toFixed(3);
+                // Intestazione: cartella e numero (delle sole non lette/lette se c'è il filtro)
+                const scriviConteggio = (totale) => {
+                    if (!emailCount) return;
+                    const testo = `${totale.toLocaleString('it-IT')} ${FILTRI_LETTURA[filtroLettura]}`;
+                    emailCount.innerHTML = `<span class="elenco-cartella">${escapeHtml(nomeCartella(folderToUse))}</span>`
+                        + `<span class="elenco-totale">${testo}${loadTime > 1 ? ` · ${loadTime}s` : ''}</span>`;
+                    emailCount.setAttribute('data-new-count', data.new_count || 0);
+                };
                 
                 // === VALIDAZIONE RISPOSTA ===
                 if (!data || !Array.isArray(data.emails)) {
@@ -1381,7 +1421,11 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 
                 // ✅ GESTIONE CARTella VUOTA (SENZA DUPLICAZIONI)
                 if (data.emails.length === 0) {
-                    if (emailList) emailList.innerHTML = '<div class="no-emails">📭 Nessuna email trovata in questa cartella</div>';
+                    const vuota = { tutte: 'Nessuna email trovata in questa cartella',
+                        non_lette: 'Nessuna email non letta in questa cartella',
+                        lette: 'Nessuna email letta in questa cartella' }[filtroLettura];
+                    if (emailList) emailList.innerHTML = `<div class="no-emails">📭 ${vuota}</div>`;
+                    scriviConteggio(0);
                     if (emptyState) emptyState.style.display = 'block';
                     updatePaginationInfo(0, 0, 1, 1);
                     
@@ -1403,12 +1447,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 }
                 
                 // Aggiorna UI
-                if (emailCount) {
-                    const totale = (data.total || 0).toLocaleString('it-IT');
-                    emailCount.innerHTML = `<span class="elenco-cartella">${escapeHtml(nomeCartella(folderToUse))}</span>`
-                        + `<span class="elenco-totale">${totale} email${loadTime > 1 ? ` · ${loadTime}s` : ''}</span>`;
-                    emailCount.setAttribute('data-new-count', data.new_count || 0);
-                }
+                scriviConteggio(data.total || 0);
                 
                 // Genera HTML email
                 let html = '';
@@ -3361,6 +3400,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 modal.style.borderRadius = modal.style.cursor =
                 modal.style.boxShadow    = modal.style.pointerEvents = '';
                 if (body) body.style.display = '';
+                applicaDimensioniCompose();
             }
 
             clearAttachments();
@@ -3406,6 +3446,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 // aggiorna icona e tooltip
                 if (icon) icon.className = 'fas fa-minus';
                 if (btn)  btn.title = 'Minimizza';
+                applicaDimensioniCompose();
             } else {
                 // ── Minimizza ────────────────────────────────────────────────
                 modal.dataset.minimized = '1';
@@ -3419,6 +3460,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 modal.style.width            = '320px';
                 modal.style.maxWidth         = '320px';
                 modal.style.maxHeight        = 'none';
+                modal.style.height           = '';
                 modal.style.borderRadius     = '12px 12px 0 0';
                 modal.style.cursor           = 'pointer';
                 modal.style.boxShadow        = '0 -4px 20px rgba(0,0,0,0.35)';
@@ -3430,6 +3472,101 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 if (btn)  btn.title = 'Ripristina';
             }
         }
+
+        // ── Finestra di scrittura più grande ─────────────────────────────────────
+        // Ingrandisci = tutto lo schermo; oppure larghezza/altezza scelte trascinando l'angolo
+        // in basso a destra. Valgono per nuova email, risposta e inoltro e restano nel browser.
+        // Sui telefoni (≤ 960 px) la finestra è già a tutto schermo: non si applicano.
+        const DIMENSIONI_COMPOSE = 'webmail.compose.dimensioni';
+        let dimensioniCompose = { ingrandita: false, w: 0, h: 0 };
+        try {
+            const salvate = JSON.parse(localStorage.getItem(DIMENSIONI_COMPOSE) || 'null');
+            if (salvate && typeof salvate === 'object') {
+                dimensioniCompose = {
+                    ingrandita: salvate.ingrandita === true,
+                    w: Number(salvate.w) || 0,
+                    h: Number(salvate.h) || 0,
+                };
+            }
+        } catch (e) { /* storage non disponibile o valore rovinato: dimensioni normali */ }
+
+        function salvaDimensioniCompose() {
+            try { localStorage.setItem(DIMENSIONI_COMPOSE, JSON.stringify(dimensioniCompose)); } catch (e) { /* niente */ }
+        }
+
+        function finestraComposeScrivi() {
+            return document.querySelector('#composeModal .compose-modal-scrivi');
+        }
+
+        function applicaDimensioniCompose() {
+            const modal = finestraComposeScrivi();
+            if (!modal || modal.dataset.minimized === '1') return;
+            const telefono = window.matchMedia('(max-width: 960px)').matches;
+            const ingrandita = dimensioniCompose.ingrandita && !telefono;
+            modal.dataset.ingrandita = ingrandita ? '1' : '0';
+            if (!ingrandita && !telefono && dimensioniCompose.w > 0 && dimensioniCompose.h > 0) {
+                // max-width/max-height al 100 % (CSS) tengono la finestra dentro lo schermo
+                modal.style.width = dimensioniCompose.w + 'px';
+                modal.style.height = dimensioniCompose.h + 'px';
+                modal.style.maxWidth = '100%';
+            } else {
+                modal.style.width = modal.style.height = modal.style.maxWidth = '';
+            }
+            const btn = document.getElementById('btnIngrandisciCompose');
+            if (btn) {
+                btn.title = ingrandita ? 'Riduci alla dimensione normale' : 'Ingrandisci';
+                const icona = btn.querySelector('i');
+                if (icona) icona.className = ingrandita ? 'fas fa-compress' : 'fas fa-expand';
+            }
+        }
+
+        function toggleIngrandisciCompose() {
+            const modal = finestraComposeScrivi();
+            if (!modal) return;
+            if (modal.dataset.minimized === '1') toggleMinimizeCompose();
+            dimensioniCompose.ingrandita = !dimensioniCompose.ingrandita;
+            salvaDimensioniCompose();
+            applicaDimensioniCompose();
+        }
+
+        // La finestra è centrata: trascinando l'angolo cresce dai due lati, quindi
+        // la misura cambia del doppio dello spostamento e l'angolo segue il mouse.
+        function iniziaRidimensionaCompose(e) {
+            const modal = finestraComposeScrivi();
+            if (!modal || modal.dataset.minimized === '1' || e.button !== 0) return;
+            e.preventDefault();
+            const maniglia = e.currentTarget;
+            const partenza = modal.getBoundingClientRect();
+            const x0 = e.clientX, y0 = e.clientY;
+            dimensioniCompose.ingrandita = false;
+            modal.dataset.ingrandita = '0';
+            maniglia.setPointerCapture(e.pointerId);
+            modal.classList.add('compose-in-ridimensionamento');
+            const muovi = (ev) => {
+                const w = Math.max(480, Math.min(window.innerWidth, partenza.width + 2 * (ev.clientX - x0)));
+                const h = Math.max(360, Math.min(window.innerHeight, partenza.height + 2 * (ev.clientY - y0)));
+                dimensioniCompose.w = Math.round(w);
+                dimensioniCompose.h = Math.round(h);
+                applicaDimensioniCompose();
+            };
+            const fine = () => {
+                maniglia.removeEventListener('pointermove', muovi);
+                maniglia.removeEventListener('pointerup', fine);
+                maniglia.removeEventListener('pointercancel', fine);
+                modal.classList.remove('compose-in-ridimensionamento');
+                salvaDimensioniCompose();
+                applicaDimensioniCompose();
+            };
+            maniglia.addEventListener('pointermove', muovi);
+            maniglia.addEventListener('pointerup', fine);
+            maniglia.addEventListener('pointercancel', fine);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('composeRidimensiona')?.addEventListener('pointerdown', iniziaRidimensionaCompose);
+            applicaDimensioniCompose();
+        });
+        window.matchMedia('(max-width: 960px)').addEventListener('change', applicaDimensioniCompose);
 
         // Ripristina solo se il modal è minimizzato (chiamato dal click sull'header)
         function restoreComposeModal() {

@@ -161,6 +161,8 @@ const RicercaEmail = {
         this.attiva = false;
         this.parametri = null;
         document.querySelector('#sidebar .pagination-controls')?.removeAttribute('hidden');
+        // il filtro Tutte/Non lette/Lette vale per l'elenco, non per i risultati
+        document.getElementById('filtroLettura')?.removeAttribute('hidden');
     },
 
     annulla() {
@@ -176,6 +178,7 @@ const RicercaEmail = {
         const conteggio = document.getElementById('emailCount');
         const altri = elenco.querySelector('.ricerca-altri');
         document.querySelector('#sidebar .pagination-controls')?.setAttribute('hidden', '');
+        document.getElementById('filtroLettura')?.setAttribute('hidden', '');
         if (aggiungi) {
             if (altri) altri.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento…';
         } else {

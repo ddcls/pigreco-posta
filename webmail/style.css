@@ -419,6 +419,28 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accento); }
 }
 .elenco-totale { white-space: nowrap; font-size: 12px; }
 
+/* Filtro Tutte / Non lette / Lette sotto il nome della cartella (index.php, cambiaFiltroLettura) */
+.filtro-lettura {
+    display: flex;
+    margin-top: 8px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    overflow: hidden;
+}
+.filtro-lettura[hidden] { display: none; }
+.filtro-lettura button {
+    flex: 1;
+    background: var(--bianco);
+    border: 0;
+    padding: 4px 8px;
+    color: var(--testo-secondario);
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.filtro-lettura button + button { border-left: 1px solid var(--bordo); }
+.filtro-lettura button:hover { background: var(--selezione); }
+.filtro-lettura button.active { background: var(--selezione); color: var(--accento); font-weight: 700; }
+
 .sidebar-content {
     flex: 1;
     min-height: 0;
@@ -1482,3 +1504,34 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accento); }
 
 /* Finestra di scrittura ridotta (toggleMinimizeCompose imposta data-minimized) */
 .compose-modal-scrivi[data-minimized="1"] { height: auto; }
+
+/* Finestra di scrittura più grande (index.php, applicaDimensioniCompose): Ingrandisci = tutto lo
+   schermo, oppure misura scelta trascinando l'angolo .compose-ridimensiona */
+.compose-modal-scrivi { position: relative; }
+.compose-modal-scrivi[data-ingrandita="1"]:not([data-minimized="1"]) {
+    max-width: none;
+    width: 100%;
+    height: 100%;
+}
+.compose-ridimensiona {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    touch-action: none;
+    /* tre righe oblique, come l'angolo delle finestre ridimensionabili */
+    background: linear-gradient(135deg, transparent 0 45%, var(--testo-tenue) 45% 52%, transparent 52% 62%,
+        var(--testo-tenue) 62% 69%, transparent 69% 79%, var(--testo-tenue) 79% 86%, transparent 86%);
+    opacity: .6;
+}
+.compose-ridimensiona:hover { opacity: 1; }
+.compose-modal-scrivi[data-minimized="1"] .compose-ridimensiona,
+.compose-modal-scrivi[data-ingrandita="1"] .compose-ridimensiona { display: none; }
+/* durante il trascinamento l'editor non deve selezionare testo */
+.compose-in-ridimensionamento { user-select: none; }
+@media (max-width: 960px) {
+    .compose-ridimensiona, .btn-ingrandisci-compose { display: none; }
+}
