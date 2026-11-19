@@ -109,14 +109,50 @@ function initEmailEditor() {
     }
 }
 
+/** true se si scrive nell'editor (non nel riquadro di solo testo delle risposte a email senza HTML) */
+function editorInUso() {
+    return !!emailEditor && emailEditor.style.display !== 'none';
+}
+
+/** Formato scelto: true = Testo (is_html = 0) */
+function formatoTesto() {
+    return document.getElementById('composeIsHtml')?.value === '0';
+}
+
 /**
- * Aggiorna il textarea nascosto con il contenuto HTML dell'editor
+ * Il contenuto dell'editor come testo semplice, con gli a capo come si vedono
+ * (firma compresa, senza immagini): è il corpo delle email in formato Testo.
+ * innerText tiene conto di <br>, blocchi e <pre> solo su un elemento
+ * visualizzato: la copia va nella pagina, fuori dallo schermo, per un attimo.
+ */
+function testoDaEditor() {
+    if (!emailEditor) return '';
+    const copia = emailEditor.cloneNode(true);
+    copia.removeAttribute('id');
+    copia.removeAttribute('contenteditable');
+    copia.style.cssText = 'position:absolute;left:-10000px;top:0;width:700px;white-space:normal;display:block;';
+    document.body.appendChild(copia);
+    const testo = copia.innerText || copia.textContent || '';
+    copia.remove();
+    return testo.replace(/\u00a0/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Aggiorna il textarea nascosto con il contenuto dell'editor: HTML, o testo
+ * semplice se il formato è Testo. Se si scrive nel riquadro di solo testo
+ * (editor nascosto) il textarea è quello che l'utente vede: non si tocca.
  */
 function updateHiddenTextarea() {
     if (!emailEditor) return;
     
     const textarea = document.getElementById('composeBody');
     if (!textarea) return;
+    if (!editorInUso()) return;
+    if (formatoTesto()) {
+        textarea.value = testoDaEditor();
+        editorContent = textarea.value;
+        return;
+    }
     
     // Ottieni HTML pulito e compatibile con email
     const cleanHtml = getCleanEmailHtml();

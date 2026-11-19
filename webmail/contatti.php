@@ -27,6 +27,8 @@
  * POST azione =
  *   salva     id (vuoto = nuovo), nome, cognome, azienda, categoria, email, telefono, sito_web, note → id
  *   elimina   id
+ *   importa   file "file" (CSV), prova = 1 solo controllo / 0 importa
+ *             → {righe, nuovi, presenti, errori, esempi, colonne}
  *
  * Una sola rubrica in comune: tutti gli utenti della webmail la leggono e la modificano.
  */
@@ -68,6 +70,17 @@ try {
         case 'elimina':
             $servizio->elimina($id);
             $risposta = ['success' => true, 'message' => 'Contatto eliminato'];
+            break;
+        case 'importa':
+            $file = $_FILES['file'] ?? null;
+            if (!$file || ($file['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'] ?? '')) {
+                throw new Exception('File non ricevuto');
+            }
+            if ((int)$file['size'] > ContattiService::MAX_IMPORTA_BYTE) {
+                throw new Exception('File troppo grande: al massimo 5 MB');
+            }
+            $prova = ($_POST['prova'] ?? '1') !== '0';
+            $risposta = ['success' => true] + $servizio->importa(file_get_contents($file['tmp_name']), $prova, $utente);
             break;
         default:
             throw new Exception('Azione non valida');

@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.9 · novembre 2026
+Versione 1.10 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -375,7 +375,7 @@ destra scrive una nuova email.
 3. Compila **A**, se serve **Cc** (copia) e **Ccn** (copia nascosta) e **Oggetto**. Più
    indirizzi si separano con la virgola.
 4. Scrivi il testo. Con **Formato** scegli **HTML** (grassetto, elenchi, link, immagini) oppure
-   **Testo** semplice.
+   **Testo** semplice: parte solo il testo, a capo compresi, senza grassetto, colori e immagini.
 5. **Allega file** aggiunge allegati; la **×** accanto a un allegato lo toglie. Inoltrando, gli
    allegati dell'email originale sono già inclusi.
 6. Premi **Invia**. Una copia viene salvata nella cartella **Inviata**.
@@ -437,6 +437,13 @@ possono aggiungere, modificare ed eliminare i contatti.
   per accettarlo, Esc per toglierlo, le frecce per sceglierne un altro).
 - **Dopo l'invio**: se fra i destinatari ci sono indirizzi nuovi, la webmail propone di
   aggiungerli, con nome e cognome da controllare.
+- **Importa** (nella finestra Contatti) aggiunge i contatti di un file CSV: quello esportato da qui,
+  da **Outlook**, da **Google Contatti** o da **Thunderbird**, oppure un foglio Excel salvato come
+  CSV con la prima riga di intestazione (`Nome;Cognome;Azienda;Categoria;Email;Telefono;Sito
+  web;Note`, separati da `;` o `,`). Prima **Controlla il file** mostra quanti contatti sono
+  nuovi, quanti già in rubrica e quali righe non vanno, con le colonne riconosciute e i primi
+  contatti; poi **Importa** li aggiunge. I contatti già in rubrica (stesso indirizzo email) non
+  vengono cambiati; senza nome e cognome si usa il nome visualizzato, l'azienda o l'indirizzo.
 - Ogni indirizzo email sta in un solo contatto. Gli indirizzi per cui rispondi **No, grazie**
   (o che togli dalla proposta) non vengono più proposti in quel browser; non vengono mai
   proposti i propri indirizzi e quelli automatici (noreply, mailer-daemon, posta-certificata…).

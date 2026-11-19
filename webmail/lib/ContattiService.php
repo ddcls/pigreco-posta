@@ -161,6 +161,251 @@ class ContattiService {
         }
     }
 
+    // ==================== IMPORTAZIONE DA CSV ====================
+
+    const MAX_IMPORTA_BYTE = 5242880;   // 5 MB
+    const MAX_IMPORTA_RIGHE = 10000;
+
+    /**
+     * Nomi di colonna riconosciuti, per campo, in ordine di preferenza: il CSV
+     * esportato da qui, da Outlook, Google Contatti e Thunderbird (anche in
+     * italiano). Si confrontano dopo normalizza(): minuscole, senza accenti e
+     * punteggiatura ("E-mail 1 - Value" → "e mail 1 value").
+     */
+    const COLONNE = [
+        'nome' => ['nome', 'first name', 'given name', 'firstname', 'nome proprio'],
+        'cognome' => ['cognome', 'last name', 'family name', 'surname', 'lastname'],
+        'completo' => ['nome visualizzato', 'display name', 'name', 'nome completo', 'full name', 'nominativo'],
+        'azienda' => ['azienda', 'societa', 'company', 'organization', 'organization name', 'organization 1 name',
+            'organizzazione', 'ditta', 'ragione sociale'],
+        'email' => ['email', 'e mail', 'mail', 'e mail address', 'email address', 'primary email', 'e mail 1 value',
+            'indirizzo email', 'indirizzo e mail', 'indirizzo posta elettronica', 'indirizzo email principale',
+            'posta elettronica', 'e mail 1', 'email 1', 'e mail 2 address', 'e mail 2 value', 'secondary email',
+            'indirizzo email secondario', 'e mail 2', 'email 2', 'e mail 3 address', 'e mail 3 value'],
+        'telefono' => ['telefono', 'tel', 'phone', 'cellulare', 'mobile', 'mobile phone', 'business phone',
+            'phone 1 value', 'telefono ufficio', 'telefono cellulare', 'numero cellulare', 'work phone',
+            'mobile number', 'primary phone', 'telefono principale', 'phone number', 'home phone',
+            'telefono abitazione', 'phone 2 value', 'business phone 2', 'telefono ufficio 2'],
+        'sito_web' => ['sito web', 'sito', 'website', 'web site', 'web page', 'web page 1', 'pagina web',
+            'pagina web 1', 'website 1 value', 'web'],
+        'note' => ['note', 'notes', 'annotazioni'],
+        'categoria' => ['categoria', 'category', 'categories'],
+    ];
+
+    private static function normalizza($testo) {
+        $testo = mb_strtolower(trim((string)$testo));
+        $testo = strtr($testo, ['à' => 'a', 'á' => 'a', 'è' => 'e', 'é' => 'e', 'ì' => 'i', 'í' => 'i',
+            'ò' => 'o', 'ó' => 'o', 'ù' => 'u', 'ú' => 'u']);
+        return trim(preg_replace('/[^a-z0-9]+/', ' ', $testo));
+    }
+
+    /** Testo del file in UTF-8, senza BOM (UTF-16 di Excel/Outlook e Windows-1252 convertiti). */
+    private static function testoUtf8($dati) {
+        if (strncmp($dati, "\xFF\xFE", 2) === 0) {
+            return mb_convert_encoding(substr($dati, 2), 'UTF-8', 'UTF-16LE');
+        }
+        if (strncmp($dati, "\xFE\xFF", 2) === 0) {
+            return mb_convert_encoding(substr($dati, 2), 'UTF-8', 'UTF-16BE');
+        }
+        if (strncmp($dati, "\xEF\xBB\xBF", 3) === 0) {
+            $dati = substr($dati, 3);
+        }
+        return mb_check_encoding($dati, 'UTF-8') ? $dati : mb_convert_encoding($dati, 'UTF-8', 'Windows-1252');
+    }
+
+    /** Righe del CSV (array di array); separatore ; , o tabulazione, scelto dalla prima riga. */
+    private static function righeCsv($testo) {
+        $prima = strtok($testo, "\n");
+        $conta = [';' => substr_count($prima, ';'), ',' => substr_count($prima, ','), "\t" => substr_count($prima, "\t")];
+        arsort($conta);
+        $separatore = (string)array_key_first($conta);
+        $f = fopen('php://temp', 'r+');
+        fwrite($f, $testo);
+        rewind($f);
+        $righe = [];
+        while (($r = fgetcsv($f, 0, $separatore, '"', '')) !== false) {
+            if ($r === [null] || implode('', array_map('trim', $r)) === '') {
+                continue;
+            }
+            $righe[] = $r;
+            if (count($righe) > self::MAX_IMPORTA_RIGHE + 1) {
+                fclose($f);
+                throw new InvalidArgumentException('Il file ha più di ' . self::MAX_IMPORTA_RIGHE . ' righe: dividilo in più parti');
+            }
+        }
+        fclose($f);
+        return $righe;
+    }
+
+    /** Intestazione → [campo => [indici delle colonne in ordine di preferenza]] */
+    private static function mappaColonne(array $intestazione) {
+        $norm = array_map([self::class, 'normalizza'], $intestazione);
+        $mappa = [];
+        foreach (self::COLONNE as $campo => $nomi) {
+            foreach ($nomi as $nome) {
+                foreach (array_keys($norm, $nome, true) as $i) {
+                    $mappa[$campo][] = $i;
+                }
+            }
+        }
+        return $mappa;
+    }
+
+    /** Primo valore non vuoto delle colonne del campo ("a ::: b" di Google → "a"; via l'apostrofo dell'export). */
+    private static function valore(array $riga, array $mappa, $campo) {
+        foreach ($mappa[$campo] ?? [] as $i) {
+            $v = trim(explode(':::', (string)($riga[$i] ?? ''))[0]);
+            if ($v !== '') {
+                return preg_match("/^'[=+\\-@]/", $v) ? substr($v, 1) : $v;
+            }
+        }
+        return '';
+    }
+
+    /** Particelle che fanno parte del cognome: "Paolo De Santis" → Paolo + De Santis */
+    const PARTICELLE = ['de', 'di', 'da', 'del', 'della', 'dello', 'dei', 'degli', 'delle', 'dal', 'dalla', 'dall',
+        'd', 'lo', 'la', 'li', 'van', 'von', 'der', 'le'];
+
+    /** Parole del nome → [nome, cognome]: l'ultima parola (con le particelle davanti) è il cognome. */
+    private static function dividiNome(array $parti) {
+        if (count($parti) < 2) {
+            return [$parti[0] ?? '', ''];
+        }
+        $cognome = [array_pop($parti)];
+        while (count($parti) > 1 && in_array(self::normalizza(end($parti)), self::PARTICELLE, true)) {
+            array_unshift($cognome, array_pop($parti));
+        }
+        return [implode(' ', $parti), implode(' ', $cognome)];
+    }
+
+    /**
+     * Importa i contatti di un file CSV. Con $prova non scrive niente e dice
+     * cosa succederebbe. Saltati: gli indirizzi già in rubrica (o già visti nel
+     * file), i contatti senza email uguali a uno presente, le righe non valide.
+     * Senza nome e cognome si usa il nome visualizzato, poi l'azienda, poi la
+     * parte dell'email prima della @.
+     *
+     * @return array {righe, nuovi, presenti, errori: [{riga, motivo}], esempi: [...], colonne: {campo: nome}}
+     */
+    public function importa($dati, $prova, $utente) {
+        if (strlen($dati) > self::MAX_IMPORTA_BYTE) {
+            throw new InvalidArgumentException('File troppo grande: al massimo 5 MB');
+        }
+        $righe = self::righeCsv(self::testoUtf8($dati));
+        if (count($righe) < 2) {
+            throw new InvalidArgumentException('Il file è vuoto o ha solo la riga di intestazione');
+        }
+        $intestazione = array_shift($righe);
+        $mappa = self::mappaColonne($intestazione);
+        if (empty($mappa['email']) && empty($mappa['nome']) && empty($mappa['cognome']) && empty($mappa['completo'])) {
+            throw new InvalidArgumentException('Colonne non riconosciute: la prima riga deve avere i nomi delle colonne, '
+                . 'per esempio Nome;Cognome;Azienda;Email;Telefono (va bene anche il CSV di Outlook, Google o Thunderbird)');
+        }
+        $colonne = [];
+        foreach ($mappa as $campo => $indici) {
+            if ($campo !== 'completo' || (empty($mappa['nome']) && empty($mappa['cognome']))) {
+                $colonne[$campo] = implode(', ', array_map(fn($i) => trim((string)$intestazione[$i]), $indici));
+            }
+        }
+
+        $emailPresenti = [];
+        $senzaEmail = [];
+        foreach ($this->righe('SELECT nome, cognome, azienda, email, telefono FROM contatti') as $c) {
+            if ($c['email'] !== '') {
+                $emailPresenti[mb_strtolower($c['email'])] = true;
+            } else {
+                $senzaEmail[mb_strtolower("{$c['nome']}|{$c['cognome']}|{$c['azienda']}|{$c['telefono']}")] = true;
+            }
+        }
+        $totale = count($emailPresenti) + count($senzaEmail);
+
+        $nuovi = [];
+        $presenti = 0;
+        $errori = [];
+        foreach ($righe as $n => $riga) {
+            $numero = $n + 2;               // la riga 1 è l'intestazione
+            $c = [];
+            foreach (['nome', 'cognome', 'azienda', 'email', 'telefono', 'sito_web', 'note', 'categoria'] as $campo) {
+                $c[$campo] = self::valore($riga, $mappa, $campo);
+            }
+            $c['email'] = trim($c['email'], " <>\t");
+            $c['note'] = mb_substr($c['note'], 0, self::CAMPI['note']);
+            $categoria = array_values(array_filter(self::CATEGORIE,
+                fn($k) => self::normalizza($k) === self::normalizza($c['categoria'])));
+            $c['categoria'] = $categoria[0] ?? 'Altro';
+            if ($c['nome'] === '' && $c['cognome'] === '') {
+                $parti = preg_split('/\s+/u', self::valore($riga, $mappa, 'completo'), -1, PREG_SPLIT_NO_EMPTY);
+                if (!$parti && $c['azienda'] !== '') {
+                    $parti = [$c['azienda']];
+                }
+                if (!$parti && $c['email'] !== '') {
+                    $parti = array_map(fn($p) => mb_convert_case($p, MB_CASE_TITLE),
+                        preg_split('/[._-]+/', explode('@', $c['email'])[0], -1, PREG_SPLIT_NO_EMPTY));
+                    $parti = array_values(array_filter($parti, fn($p) => !ctype_digit($p)));
+                }
+                [$c['nome'], $c['cognome']] = self::dividiNome($parti);
+            }
+            if (implode('', $c) === 'Altro') {
+                continue;                   // riga senza dati
+            }
+            try {
+                $c = $this->pulisci($c);
+            } catch (InvalidArgumentException $e) {
+                if (count($errori) < 100) {
+                    $errori[] = ['riga' => $numero, 'motivo' => $e->getMessage()];
+                }
+                continue;
+            }
+            if ($c['email'] !== '') {
+                $chiave = mb_strtolower($c['email']);
+                if (isset($emailPresenti[$chiave])) {
+                    $presenti++;
+                    continue;
+                }
+                $emailPresenti[$chiave] = true;
+            } else {
+                $chiave = mb_strtolower("{$c['nome']}|{$c['cognome']}|{$c['azienda']}|{$c['telefono']}");
+                if (isset($senzaEmail[$chiave])) {
+                    $presenti++;
+                    continue;
+                }
+                $senzaEmail[$chiave] = true;
+            }
+            $nuovi[] = $c;
+        }
+        if ($totale + count($nuovi) > self::MAX_CONTATTI) {
+            throw new InvalidArgumentException('Con questi contatti la rubrica supererebbe il massimo di '
+                . self::MAX_CONTATTI);
+        }
+
+        if (!$prova && $nuovi) {
+            $utente = $utente > 0 ? (int)$utente : null;
+            $this->conn->begin_transaction();
+            try {
+                foreach ($nuovi as $c) {
+                    $this->query(
+                        'INSERT INTO contatti (nome, cognome, azienda, categoria, email, telefono, sito_web, note,
+                                               creato_da, modificato_da)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        'ssssssssii', [$c['nome'], $c['cognome'], $c['azienda'], $c['categoria'], $c['email'],
+                            $c['telefono'], $c['sito_web'], $c['note'], $utente, $utente])->close();
+                }
+                $this->conn->commit();
+            } catch (Throwable $e) {
+                $this->conn->rollback();
+                throw $e;
+            }
+        }
+        return [
+            'righe' => count($righe),
+            'nuovi' => count($nuovi),
+            'presenti' => $presenti,
+            'errori' => $errori,
+            'esempi' => array_slice($nuovi, 0, 10),
+            'colonne' => $colonne,
+        ];
+    }
+
     /**
      * La rubrica in CSV per Excel (UTF-8 con BOM, separatore ";"). Un valore che
      * inizia con = + - @ prende un apostrofo davanti: Excel non lo esegue come formula.

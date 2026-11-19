@@ -49,7 +49,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="stylesheet" href="temi.css?v=1">
     <link rel="stylesheet" href="style.css?v=2.3">
     <link rel="stylesheet" href="archivio.css?v=2.1">
-    <link rel="stylesheet" href="contatti.css?v=2">
+    <link rel="stylesheet" href="contatti.css?v=3">
     <link rel="stylesheet" href="filtri.css?v=1">
     <link rel="stylesheet" href="firme.css?v=1">
     <link rel="stylesheet" href="selezione.css?v=3">
@@ -1023,10 +1023,10 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
 </div>
 
     <!-- Editor HTML per email -->
-    <script src="email_editor.js?v=2"></script>
+    <script src="email_editor.js?v=3"></script>
     <script src="archivio.js?v=2.4"></script>
     <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
-    <script src="contatti.js?v=3"></script>
+    <script src="contatti.js?v=4"></script>
     <script src="selezione.js?v=3"></script>
     <script src="ricerca.js?v=2"></script>
     <script src="bozze.js?v=2"></script>
@@ -3097,6 +3097,12 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             if (isHtmlInput) {
                 isHtmlInput.value = '1'; // ← HTML ATTIVATO
             }
+            // Dopo una risposta a un'email senza HTML l'editor era nascosto e il
+            // riquadro di testo visibile: si riparte sempre dall'editor
+            const editorNuovo = document.getElementById('emailEditor');
+            const testoNuovo = document.getElementById('composeBody');
+            if (editorNuovo) editorNuovo.style.display = 'block';
+            if (testoNuovo) testoNuovo.style.display = 'none';
 
             // Nascondi warning inoltra se esiste
             const forwardWarning = document.getElementById('forwardWarning');
@@ -3447,6 +3453,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 document.querySelector('.format-btn:last-child').classList.add('active');
                 document.getElementById('composeIsHtml').value = '1';
             }
+            // Il corpo nascosto passa da HTML a testo (o viceversa) solo se è già in uso
+            const nascosto = document.getElementById('composeBody');
+            if (nascosto && nascosto.value.trim() && typeof updateHiddenTextarea === 'function') updateHiddenTextarea();
         }
 
         // Anteprima allegati
@@ -3574,6 +3583,11 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             // ✅ VALIDAZIONE CAMPI (usa SOLO FormData, non elementi DOM)
             const to = formData.get('to')?.trim();
             const subject = formData.get('subject')?.trim();
+            // Formato Testo scrivendo nell'editor: si spedisce il suo testo, non l'HTML
+            // (prima partiva l'HTML come testo semplice e chi riceveva vedeva il codice)
+            if (typeof editorInUso === 'function' && editorInUso() && formatoTesto()) {
+                formData.set('body', testoDaEditor());
+            }
             let body = formData.get('body')?.trim();
             
             // ✅ DEBUG ESPPLICITO: Verifica immediata dell'oggetto

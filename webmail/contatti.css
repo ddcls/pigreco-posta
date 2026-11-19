@@ -19,7 +19,7 @@
  */
 
 /*
- * Contatti (contatti.js): rubrica di PiGreco Archivio nella webmail.
+ * Contatti (contatti.js): rubrica della webmail o di PiGreco Archivio.
  * Usa la base delle finestre di style.css, i pulsanti di archivio.css e i
  * colori di temi.css.
  */
@@ -322,4 +322,74 @@
 @media (max-width: 640px) {
     .proposta-riga { grid-template-columns: 1fr 1fr; }
     .proposta-email { grid-column: 1 / -1; }
+}
+
+/* Importazione da CSV */
+.contatti-importa code {
+    font-size: 12px;
+    word-break: break-all;
+}
+
+.contatti-importa input[type="file"] {
+    padding: 6px;
+}
+
+.importa-riepilogo {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.importa-riepilogo i {
+    width: 18px;
+    color: var(--testo-tenue);
+}
+
+.importa-riepilogo .importa-errori-titolo,
+.importa-riepilogo .importa-errori-titolo i {
+    color: var(--pericolo);
+}
+
+.importa-dettagli {
+    margin: 0 0 10px;
+    font-size: 13px;
+}
+
+.importa-dettagli summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--testo-secondario);
+}
+
+.importa-dettagli ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.importa-tabella {
+    overflow-x: auto;
+    margin-top: 6px;
+}
+
+.importa-tabella table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.importa-tabella th,
+.importa-tabella td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--bordo);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.importa-tabella th {
+    color: var(--testo-secondario);
 }

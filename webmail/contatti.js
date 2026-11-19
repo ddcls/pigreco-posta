@@ -33,7 +33,9 @@
  *   l'amministratore tutti.
  *
  * - Menu ⚙️ › Contatti: finestra con ricerca, categorie, nuovo, modifica,
- *   elimina, esporta CSV e "✉️ Scrivi" (nuova email già indirizzata).
+ *   elimina, esporta CSV e "✉️ Scrivi" (nuova email già indirizzata); nella
+ *   rubrica della webmail anche "Importa" da CSV (prima un controllo che non
+ *   scrive niente, poi la conferma).
  * - Nuova email: mentre si scrive in "A", "Cc" o "Ccn" compaiono dal primo
  *   carattere i suggerimenti dalla rubrica, i più vicini prima, e il primo
  *   indirizzo che inizia così viene completato nel campo (con l'archivio solo
@@ -226,6 +228,7 @@ const ContattiRubrica = {
                     ${this.CATEGORIE.map(c => `<option ${c === this.categoria ? 'selected' : ''}>${c}</option>`).join('')}
                 </select>
                 ${puoCreare ? '<button type="button" class="archivia-btn-primario" data-azione="nuovo"><i class="fas fa-user-plus"></i> Nuovo</button>' : ''}
+                ${this.archivio() ? '' : '<button type="button" class="archivia-btn-secondario" data-azione="importa" title="Aggiungi contatti da un file CSV"><i class="fas fa-file-import"></i> Importa</button>'}
                 <a class="archivia-btn-secondario" href="${this.archivio() ? '/api/agenda/export' : 'contatti.php?azione=esporta'}" title="Scarica la rubrica in formato CSV"><i class="fas fa-file-export"></i> CSV</a>
             </div>
             <div class="contatti-conteggio"></div>
@@ -238,6 +241,7 @@ const ContattiRubrica = {
         this.corpo().querySelector('.contatti-categoria').addEventListener('change', (e) => { this.categoria = e.target.value; this.disegnaRighe(); });
         const nuovo = this.corpo().querySelector('[data-azione="nuovo"]');
         if (nuovo) nuovo.addEventListener('click', () => this.mostraModulo(null));
+        this.corpo().querySelector('[data-azione="importa"]')?.addEventListener('click', () => this.mostraImporta());
         this.disegnaRighe();
         cerca.focus();
     },
@@ -349,6 +353,85 @@ const ContattiRubrica = {
         } catch (e) {
             showToast('Contatto non eliminato: ' + e.message, 'error');
         }
+    },
+
+    // ---------------------------------------------------------------- importazione da CSV
+
+    /** Scelta del file: si controlla subito (prova = 1), si importa dopo la conferma */
+    mostraImporta(errore = '') {
+        this.corpo().innerHTML = `
+            <form class="contatti-modulo contatti-importa">
+                <h4>Importa contatti da CSV</h4>
+                <p class="archivia-nota">Va bene il CSV esportato da qui, da <strong>Outlook</strong>, da
+                <strong>Google Contatti</strong> o da <strong>Thunderbird</strong>, oppure un foglio Excel salvato come
+                CSV con la prima riga di intestazione, per esempio
+                <code>Nome;Cognome;Azienda;Categoria;Email;Telefono;Sito web;Note</code>.
+                Gli indirizzi email già in rubrica vengono saltati: nessun contatto esistente viene cambiato.</p>
+                ${errore ? `<div class="archivia-errore">${this.esc(errore)}</div>` : ''}
+                <label>File CSV (al massimo 5 MB)<input type="file" name="file" accept=".csv,text/csv,.txt" required></label>
+                <div class="contatti-azioni-modulo">
+                    <button type="button" class="archivia-btn-secondario" data-azione="indietro">Annulla</button>
+                    <button type="submit" class="archivia-btn-primario"><i class="fas fa-search"></i> Controlla il file</button>
+                </div>
+            </form>`;
+        const form = this.corpo().querySelector('form');
+        form.querySelector('[data-azione="indietro"]').addEventListener('click', () => this.mostraElenco());
+        form.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const file = form.file.files[0];
+            if (!file) return;
+            this.stato('<i class="fas fa-spinner fa-spin"></i> Controllo del file...');
+            try {
+                this.mostraAnteprima(file, await this.locale('importa', { prova: '1', file }));
+            } catch (e) {
+                this.mostraImporta(e.message);
+            }
+        });
+    },
+
+    NOMI_CAMPI: { nome: 'Nome', cognome: 'Cognome', completo: 'Nome e cognome', azienda: 'Azienda', email: 'Email',
+        telefono: 'Telefono', sito_web: 'Sito web', note: 'Note', categoria: 'Categoria' },
+
+    mostraAnteprima(file, esito) {
+        const colonne = Object.entries(esito.colonne || {})
+            .map(([campo, nome]) => `<li><strong>${this.esc(this.NOMI_CAMPI[campo] || campo)}</strong> ← ${this.esc(nome)}</li>`).join('');
+        const esempi = (esito.esempi || []).map(c => `
+            <tr><td>${this.esc(this.nomeCompleto(c))}</td><td>${this.esc(c.azienda)}</td><td>${this.esc(c.email)}</td>
+                <td>${this.esc(c.telefono)}</td><td>${this.esc(c.categoria)}</td></tr>`).join('');
+        const errori = (esito.errori || []).map(e => `<li>riga ${Number(e.riga)}: ${this.esc(e.motivo)}</li>`).join('');
+        const n = Number(esito.nuovi) || 0;
+        this.corpo().innerHTML = `
+            <div class="contatti-modulo contatti-importa">
+                <h4>Importa contatti da CSV · ${this.esc(file.name)}</h4>
+                <ul class="importa-riepilogo">
+                    <li><i class="fas fa-user-plus"></i> <strong>${n}</strong> ${n === 1 ? 'contatto nuovo' : 'contatti nuovi'}</li>
+                    <li><i class="fas fa-user-check"></i> <strong>${Number(esito.presenti) || 0}</strong> già in rubrica (saltati)</li>
+                    ${esito.errori?.length ? `<li class="importa-errori-titolo"><i class="fas fa-exclamation-triangle"></i> <strong>${esito.errori.length}</strong> righe non valide (saltate)</li>` : ''}
+                </ul>
+                <details class="importa-dettagli"><summary>Colonne riconosciute</summary><ul>${colonne}</ul></details>
+                ${errori ? `<details class="importa-dettagli" open><summary>Righe non valide</summary><ul>${errori}</ul></details>` : ''}
+                ${esempi ? `<p class="contatti-nota">${n > 10 ? 'I primi 10 contatti nuovi:' : 'I contatti nuovi:'}</p>
+                    <div class="importa-tabella"><table><thead><tr><th>Nome</th><th>Azienda</th><th>Email</th><th>Telefono</th><th>Categoria</th></tr></thead>
+                    <tbody>${esempi}</tbody></table></div>` : ''}
+                <div class="contatti-azioni-modulo">
+                    <button type="button" class="archivia-btn-secondario" data-azione="indietro">Annulla</button>
+                    ${n ? `<button type="button" class="archivia-btn-primario" data-azione="importa"><i class="fas fa-file-import"></i> Importa ${n} ${n === 1 ? 'contatto' : 'contatti'}</button>` : ''}
+                </div>
+            </div>`;
+        this.corpo().querySelector('[data-azione="indietro"]').addEventListener('click', () => this.mostraElenco());
+        this.corpo().querySelector('[data-azione="importa"]')?.addEventListener('click', async (ev) => {
+            ev.currentTarget.disabled = true;
+            this.stato('<i class="fas fa-spinner fa-spin"></i> Importazione dei contatti...');
+            try {
+                const fatto = await this.locale('importa', { prova: '0', file });
+                showToast(fatto.nuovi === 1 ? 'Importato 1 contatto' : `Importati ${fatto.nuovi} contatti`, 'success');
+                await this.carica();
+                this.mostraElenco();
+                this.aggiornaBanner();
+            } catch (e) {
+                this.mostraImporta('Importazione non riuscita, nessun contatto aggiunto: ' + e.message);
+            }
+        });
     },
 
     // ---------------------------------------------------------------- dalla lettura
