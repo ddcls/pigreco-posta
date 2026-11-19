@@ -340,6 +340,146 @@ def extract_parts(msg, result, depth=0, is_real_body=False):
     # 'container', 'rfc822', 'skip' → gestiti sopra o ignorati
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Notifiche di consegna (multipart/report): recapito fallito, in ritardo, ricevute di lettura
+# ──────────────────────────────────────────────────────────────────────────────
+# In una notifica il messaggio allegato (message/rfc822) è l'email ORIGINALE che non è arrivata: al contrario della
+# busta PEC il corpo da mostrare è la spiegazione del gestore, con i dati di consegna e le intestazioni dell'originale.
+PARTI_STATO = {'message/delivery-status', 'message/global-delivery-status', 'message/disposition-notification'}
+PARTI_ORIGINALE = {'message/rfc822', 'text/rfc822-headers', 'message/rfc822-headers', 'message/global-headers'}
+AZIONI = {
+    'failed': 'non recapitata',
+    'delayed': 'in ritardo, il gestore riprova',
+    'delivered': 'recapitata',
+    'relayed': 'passata a un altro server',
+    'expanded': 'recapitata a una lista',
+}
+
+
+def _testo_parte(part):
+    """Testo di una parte (anche se il tipo non è text/*), in UTF-8."""
+    if part.is_multipart():
+        return ''
+    return decode_text_payload(part)
+
+
+def _blocchi_intestazioni(part):
+    """Blocchi di campi "Nome: valore" di message/delivery-status (il primo è del messaggio, poi uno per
+    destinatario), come liste di coppie."""
+    payload = part.get_payload()
+    if isinstance(payload, list):
+        blocchi = [list(b.items()) for b in payload if hasattr(b, 'items')]
+    else:
+        testo = _testo_parte(part).replace('\r\n', '\n')
+        blocchi = [list(email.message_from_string(b.strip() + '\n').items())
+                   for b in re.split(r'\n\s*\n', testo) if b.strip()]
+    return [[(k, ' '.join(str(v).split())) for k, v in b] for b in blocchi if b]
+
+
+def _intestazioni_originale(part):
+    """Intestazioni dell'email originale (message/rfc822 o solo le intestazioni)."""
+    payload = part.get_payload()
+    if isinstance(payload, list) and payload and hasattr(payload[0], 'get'):
+        orig = payload[0]
+    elif hasattr(payload, 'get'):
+        orig = payload
+    else:
+        orig = email.message_from_string(_testo_parte(part))
+    return [(nome, decode_mime_header(orig.get(campo, ''))) for campo, nome in
+            (('From', 'Da'), ('To', 'A'), ('Cc', 'Cc'), ('Date', 'Data'), ('Subject', 'Oggetto'),
+             ('Message-ID', 'Message-ID')) if orig.get(campo)]
+
+
+def _togli_tipo(valore):
+    """'rfc822; a@b.it' -> 'a@b.it', 'smtp; 550 ...' -> '550 ...'."""
+    return valore.split(';', 1)[1].strip() if ';' in valore else valore.strip()
+
+
+def leggi_notifica(msg):
+    """Se il messaggio è una notifica di consegna restituisce testo e HTML da mostrare, altrimenti None.
+
+    In cima un riquadro con l'esito per ogni destinatario (Final-Recipient, Action, Diagnostic-Code), poi la
+    spiegazione del gestore, i dati tecnici della consegna e le intestazioni dell'email originale."""
+    report = next((p for p in msg.walk() if p.get_content_type() == 'multipart/report'), None)
+    if report is None:
+        return None
+    figli = report.get_payload() if isinstance(report.get_payload(), list) else []
+    stato = next((p for p in figli if p.get_content_type() in PARTI_STATO), None)
+    originale = next((p for p in figli if p.get_content_type() in PARTI_ORIGINALE), None)
+    if stato is None and originale is None:
+        return None
+
+    # Spiegazione del gestore: la prima parte del report (testo, o HTML se c'è solo quello)
+    spiegazione_testo, spiegazione_html = '', ''
+    if figli and figli[0] is not stato and figli[0] is not originale:
+        for p in figli[0].walk():
+            ct = p.get_content_type()
+            if ct == 'text/plain' and not spiegazione_testo:
+                spiegazione_testo = decode_text_payload(p).strip()
+            elif ct == 'text/html' and not spiegazione_html:
+                spiegazione_html = clean_html(decode_text_payload(p).strip())
+
+    blocchi = _blocchi_intestazioni(stato) if stato is not None else []
+    esiti = []
+    for b in blocchi:
+        campi = {k.lower(): v for k, v in b}
+        dest = campi.get('final-recipient') or campi.get('original-recipient')
+        if not dest:
+            continue
+        azione = campi.get('action', '').lower()
+        esiti.append({
+            'destinatario': _togli_tipo(dest),
+            'azione': AZIONI.get(azione, azione),
+            'fallita': azione == 'failed',
+            'stato': campi.get('status', ''),
+            'motivo': _togli_tipo(campi.get('diagnostic-code', '')),
+        })
+    disposizione = next((v for b in blocchi for k, v in b if k.lower() == 'disposition'), '')
+    intest = _intestazioni_originale(originale) if originale is not None else []
+    dati_stato = '\n\n'.join('\n'.join(f'{k}: {v}' for k, v in b) for b in blocchi)
+    dati_originale = '\n'.join(f'{k}: {v}' for k, v in intest)
+
+    if any(e['fallita'] for e in esiti):
+        titolo = 'Email non recapitata'
+    elif disposizione:
+        titolo = 'Ricevuta di lettura'
+    elif esiti:
+        titolo = 'Notifica di consegna'
+    else:
+        titolo = 'Notifica del server di posta'
+
+    h = lambda v: v.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+    righe = ''.join(
+        f'<tr><td style="padding:3px 12px 3px 0;vertical-align:top;"><b>{h(e["destinatario"])}</b></td>'
+        f'<td style="padding:3px 12px 3px 0;vertical-align:top;color:{"#b42318" if e["fallita"] else "inherit"};">'
+        f'{h(e["azione"])}{" (" + h(e["stato"]) + ")" if e["stato"] else ""}</td>'
+        f'<td style="padding:3px 0;vertical-align:top;">{h(e["motivo"])}</td></tr>' for e in esiti)
+    orig = dict(intest)
+    riquadro = (
+        '<div style="font-family:sans-serif;font-size:14px;border:1px solid #f0b3ad;background:#fff4f2;'
+        'border-radius:6px;padding:12px 14px;margin:0 0 16px;color:#222;">'
+        f'<div style="font-weight:bold;font-size:15px;margin-bottom:6px;">{h(titolo)}</div>'
+        + (f'<table style="border-collapse:collapse;font-size:14px;margin-bottom:6px;">{righe}</table>' if righe else '')
+        + (f'<div>Esito: {h(disposizione)}</div>' if disposizione else '')
+        + ''.join(f'<div><span style="color:#666;">{nome}:</span> {h(orig[nome])}</div>'
+                  for nome in ('A', 'Cc', 'Oggetto', 'Data') if orig.get(nome))
+        + '</div>')
+    pre = lambda t: ('<pre style="white-space:pre-wrap;word-wrap:break-word;font-size:12px;background:#f6f6f6;'
+                     f'padding:8px 10px;border-radius:4px;">{h(t)}</pre>')
+    html_out = riquadro + (spiegazione_html or (text_to_html(spiegazione_testo) if spiegazione_testo else ''))
+    if dati_stato:
+        html_out += '<h4 style="font-family:sans-serif;margin:18px 0 4px;">Dati della consegna</h4>' + pre(dati_stato)
+    if dati_originale:
+        html_out += '<h4 style="font-family:sans-serif;margin:18px 0 4px;">Email originale</h4>' + pre(dati_originale)
+
+    testo_out = '\n\n'.join(t for t in (
+        titolo + ''.join(f'\n  {e["destinatario"]}: {e["azione"]} {e["motivo"]}'.rstrip() for e in esiti),
+        spiegazione_testo,
+        ('Dati della consegna\n' + dati_stato) if dati_stato else '',
+        ('Email originale\n' + dati_originale) if dati_originale else '') if t)
+    return testo_out, html_out
+
+
 def _fallback_filename(content_type):
     """Genera un nome file di fallback dal content-type."""
     ext = content_type.split('/')[-1].split(';')[0].strip()
@@ -435,6 +575,11 @@ def parse_email_bytes(raw):
             result['text_body'] = result['_fallback_text']
         if not result['html_body'] and result.get('_fallback_html'):
             result['html_body'] = result['_fallback_html']
+
+        # Notifica di consegna: il corpo è la spiegazione del gestore, non l'email originale allegata
+        notifica = leggi_notifica(msg)
+        if notifica is not None:
+            result['text_body'], result['html_body'] = notifica
 
         # Se c'è solo testo, genera HTML basilare
         if not result['html_body'] and result['text_body']:

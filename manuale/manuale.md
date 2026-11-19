@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.8 · novembre 2026
+Versione 1.8.1 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -275,6 +275,13 @@ testo e allegati.
 **Mostra l'XML** fa vedere il file originale. Dei file firmati (`.p7m`) si legge il contenuto, ma
 la firma non viene controllata: per verificarla scaricali e aprili con il programma della firma
 digitale.
+
+**Email non recapitate.** Quando un'email non arriva, il gestore manda una notifica ("Recapito
+fallito", "Mail delivery failed", "Delivery Status Notification"). In cima alla notifica la
+webmail mostra un riquadro con l'indirizzo a cui non è arrivata, il motivo dato dal server del
+destinatario (per esempio `550 Invalid Recipient` = indirizzo inesistente) e oggetto e data
+dell'email originale. Sotto ci sono il testo del gestore, i **Dati della consegna** e le
+intestazioni dell'**Email originale**; i suoi allegati restano in fondo.
 
 I pulsanti sopra l'email:
 
