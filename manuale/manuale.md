@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.8.1 · novembre 2026
+Versione 1.9 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -420,6 +420,29 @@ negli inoltri **sopra** il messaggio citato. Non si modifica dentro l'email: dal
   loro posto e non compaiono tra gli allegati. Rispondendo o inoltrando, quelle immagini partono
   dentro l'email, così chi riceve le vede anche con Gmail e Outlook.
 
+### La rubrica dei contatti
+
+La webmail ha **una rubrica sola, in comune per tutti gli utenti**: tutti la vedono e tutti
+possono aggiungere, modificare ed eliminare i contatti.
+
+- Menu utente → **Contatti**: ricerca per nome, azienda, email o telefono, categoria (Cliente,
+  Fornitore, Collega, Partner, Altro), **Nuovo**, modifica ✏️, elimina 🗑️, **Scrivi** (nuova
+  email già indirizzata) e **CSV** (la rubrica in un file da aprire con Excel).
+- **Leggendo un'email**: se il mittente non è in rubrica, sopra l'email compare la riga
+  «… non è nei contatti» con **Aggiungi** e **No, grazie**. Il pulsante 👤+ accanto al mittente
+  lo aggiunge in qualsiasi momento. Per una PEC viene proposto l'indirizzo «per conto di», non
+  quello del gestore.
+- **Scrivendo**: in **A**, **Cc** e **Ccn** compaiono dal primo carattere i contatti che
+  corrispondono, e il primo indirizzo che inizia così viene completato nel campo (Tab o Invio
+  per accettarlo, Esc per toglierlo, le frecce per sceglierne un altro).
+- **Dopo l'invio**: se fra i destinatari ci sono indirizzi nuovi, la webmail propone di
+  aggiungerli, con nome e cognome da controllare.
+- Ogni indirizzo email sta in un solo contatto. Gli indirizzi per cui rispondi **No, grazie**
+  (o che togli dalla proposta) non vengono più proposti in quel browser; non vengono mai
+  proposti i propri indirizzi e quelli automatici (noreply, mailer-daemon, posta-certificata…).
+
+Con PiGreco Archivio collegato, la rubrica è invece quella dell'archivio (vedi il capitolo 13).
+
 ---
 
 ## 7. Filtri sulle email in arrivo
@@ -720,7 +743,8 @@ Dall'archivio la webmail si apre con il pulsante **📧 Posta**, all'indirizzo
   (faldone e cartellina, pulsante **Come l'ultima volta**) e la stessa scelta su **Crea una
   cartellina con l'oggetto**, così più email di fila vanno nello stesso posto senza rifare la
   scelta;
-- la **rubrica** dei contatti in comune con l'archivio, con i suggerimenti mentre scrivi;
+- la **rubrica** dei contatti in comune con l'archivio (al posto di quella della webmail), con
+  i suggerimenti mentre scrivi;
 - dall'archivio, l'invio dei documenti **dalla tua casella**, con la copia in Inviata.
 
 Gli utenti e le caselle della webmail restano quelli di sempre, diversi dagli utenti

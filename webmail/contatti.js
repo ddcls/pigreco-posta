@@ -19,27 +19,29 @@
  */
 
 /**
- * Contatti: la rubrica di PiGreco Archivio (agenda telefonica) usata dalla webmail.
+ * Contatti: la rubrica della webmail.
  *
- * Una sola rubrica per i due programmi: i contatti stanno nella tabella
- * agenda_contatti dell'archivio e si leggono e modificano con le sue API
- * (/api/agenda), con la sessione dell'archivio, come fa la finestra "Archivia"
- * (archivio.js, ArchiviaEmail.api). Valgono quindi le regole dell'agenda:
- * il consultore consulta, l'operatore modifica i contatti che ha creato lui,
- * l'amministratore tutti.
+ * Due rubriche possibili, con gli stessi campi e lo stesso codice:
+ * - webmail da sola (ARCHIVIO_URL vuoto): la rubrica della webmail, tabella
+ *   contatti (contatti.php, lib/ContattiService.php), una sola in comune per
+ *   tutti gli utenti, che la vedono e la modificano tutti;
+ * - webmail collegata a PiGreco Archivio: la rubrica è l'agenda telefonica
+ *   dell'archivio (tabella agenda_contatti), letta e modificata con le sue API
+ *   (/api/agenda) e la sessione dell'archivio, come fa la finestra "Archivia"
+ *   (archivio.js, ArchiviaEmail.api). Valgono le regole dell'agenda: il
+ *   consultore consulta, l'operatore modifica i contatti che ha creato lui,
+ *   l'amministratore tutti.
  *
  * - Menu ⚙️ › Contatti: finestra con ricerca, categorie, nuovo, modifica,
  *   elimina, esporta CSV e "✉️ Scrivi" (nuova email già indirizzata).
  * - Nuova email: mentre si scrive in "A", "Cc" o "Ccn" compaiono dal primo
  *   carattere i suggerimenti dalla rubrica, i più vicini prima, e il primo
- *   indirizzo che inizia così viene completato nel campo (solo se si è già
- *   collegati all'archivio: non chiede l'accesso).
+ *   indirizzo che inizia così viene completato nel campo (con l'archivio solo
+ *   se si è già collegati: non chiede l'accesso).
  * - Lettura: il pulsante accanto al mittente lo aggiunge alla rubrica; se il
  *   mittente non c'è, una riga sopra l'email propone "Aggiungi / No, grazie".
  * - Dopo l'invio: propone di aggiungere i destinatari che non sono in rubrica.
  *   Gli indirizzi rifiutati non vengono più proposti (localStorage del browser).
- *
- * Con la webmail installata da sola (ARCHIVIO_URL vuoto) la rubrica non c'è.
  */
 
 const ContattiRubrica = {
@@ -51,8 +53,46 @@ const ContattiRubrica = {
     filtro: '',
     categoria: '',
 
-    disponibile() {
+    /** true = rubrica dell'archivio (agenda), false = rubrica della webmail (contatti.php) */
+    archivio() {
         return typeof ARCHIVIO_URL !== 'undefined' && String(ARCHIVIO_URL || '').trim() !== '';
+    },
+
+    /** Chiamata a contatti.php (rubrica della webmail) */
+    async locale(azione = '', dati = null) {
+        const opzioni = { credentials: 'same-origin' };
+        if (dati) {
+            const corpo = new FormData();
+            corpo.append('azione', azione);
+            Object.entries(dati).forEach(([k, v]) => corpo.append(k, v ?? ''));
+            opzioni.method = 'POST';
+            opzioni.body = corpo;
+        }
+        const r = await fetch('contatti.php', opzioni);
+        const risposta = await r.json().catch(() => { throw new Error('Errore HTTP ' + r.status); });
+        if (!risposta.success) throw new Error(risposta.error || 'Operazione non riuscita');
+        return risposta;
+    },
+
+    /** Nuovo contatto (contatto = null) o modifica, nella rubrica in uso */
+    async scrivi(contatto, dati) {
+        if (!this.archivio()) {
+            await this.locale('salva', { ...dati, id: contatto ? Number(contatto.id) : '' });
+            return;
+        }
+        await ArchiviaEmail.api(contatto ? `/agenda/${Number(contatto.id)}` : '/agenda', {
+            method: contatto ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dati),
+        });
+    },
+
+    async cancella(contatto) {
+        if (!this.archivio()) {
+            await this.locale('elimina', { id: Number(contatto.id) });
+            return;
+        }
+        await ArchiviaEmail.api(`/agenda/${Number(contatto.id)}`, { method: 'DELETE' });
     },
 
     esc(v) {
@@ -69,8 +109,12 @@ const ContattiRubrica = {
         return s.toUpperCase();
     },
 
-    /** Può modificare/eliminare il contatto (stesse regole di AgendaController::canWrite) */
+    /**
+     * Può modificare/eliminare il contatto: nella rubrica della webmail tutti,
+     * nell'agenda dell'archivio le regole di AgendaController::canWrite
+     */
     puoModificare(c) {
+        if (!this.archivio()) return true;
         const u = ArchiviaEmail.utente;
         if (!u || u.ruolo === 'consultore') return false;
         if (!c) return true;
@@ -79,7 +123,7 @@ const ContattiRubrica = {
     },
 
     async carica() {
-        const dati = await ArchiviaEmail.api('/agenda');
+        const dati = this.archivio() ? await ArchiviaEmail.api('/agenda') : await this.locale();
         this.contatti = dati.contatti || [];
         this.caricati = Date.now();
     },
@@ -87,14 +131,11 @@ const ContattiRubrica = {
     // ---------------------------------------------------------------- finestra
 
     async apri(nuovo = null) {
-        if (!this.disponibile()) {
-            showToast('La rubrica dei contatti è disponibile quando la webmail è collegata a PiGreco Archivio', 'info');
-            return;
-        }
         this.costruisci();
-        this.stato('<i class="fas fa-spinner fa-spin"></i> Collegamento all\'archivio...');
+        this.stato(this.archivio() ? '<i class="fas fa-spinner fa-spin"></i> Collegamento all\'archivio...'
+            : '<i class="fas fa-spinner fa-spin"></i> Caricamento dei contatti...');
         try {
-            if (!(await ArchiviaEmail.sessioneArchivio())) {
+            if (this.archivio() && !(await ArchiviaEmail.sessioneArchivio())) {
                 this.mostraLogin(nuovo);
                 return;
             }
@@ -185,12 +226,13 @@ const ContattiRubrica = {
                     ${this.CATEGORIE.map(c => `<option ${c === this.categoria ? 'selected' : ''}>${c}</option>`).join('')}
                 </select>
                 ${puoCreare ? '<button type="button" class="archivia-btn-primario" data-azione="nuovo"><i class="fas fa-user-plus"></i> Nuovo</button>' : ''}
-                <a class="archivia-btn-secondario" href="/api/agenda/export" title="Scarica la rubrica in formato CSV"><i class="fas fa-file-export"></i> CSV</a>
+                <a class="archivia-btn-secondario" href="${this.archivio() ? '/api/agenda/export' : 'contatti.php?azione=esporta'}" title="Scarica la rubrica in formato CSV"><i class="fas fa-file-export"></i> CSV</a>
             </div>
             <div class="contatti-conteggio"></div>
             <div class="contatti-elenco"></div>
-            <p class="contatti-nota">È la stessa rubrica dell'agenda telefonica di PiGreco Archivio.
-            ${puoCreare ? '' : 'Il tuo ruolo nell\'archivio permette solo di consultarla.'}</p>`;
+            <p class="contatti-nota">${this.archivio()
+                ? 'È la stessa rubrica dell\'agenda telefonica di PiGreco Archivio.' + (puoCreare ? '' : ' Il tuo ruolo nell\'archivio permette solo di consultarla.')
+                : 'La rubrica è in comune: tutti gli utenti della webmail la vedono e la modificano.'}</p>`;
         const cerca = this.corpo().querySelector('.contatti-cerca');
         cerca.addEventListener('input', () => { this.filtro = cerca.value; this.disegnaRighe(); });
         this.corpo().querySelector('.contatti-categoria').addEventListener('change', (e) => { this.categoria = e.target.value; this.disegnaRighe(); });
@@ -285,11 +327,7 @@ const ContattiRubrica = {
         const pulsante = form.querySelector('[type="submit"]');
         pulsante.disabled = true;
         try {
-            await ArchiviaEmail.api(contatto ? `/agenda/${Number(contatto.id)}` : '/agenda', {
-                method: contatto ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dati),
-            });
+            await this.scrivi(contatto, dati);
             showToast(contatto ? 'Contatto aggiornato' : 'Contatto aggiunto alla rubrica', 'success');
             await this.carica();
             this.mostraElenco();
@@ -301,9 +339,10 @@ const ContattiRubrica = {
     },
 
     async elimina(c) {
-        if (!confirm(`Eliminare "${this.nomeCompleto(c)}" dalla rubrica?\n\nLa rubrica è condivisa con PiGreco Archivio.`)) return;
+        const condivisa = this.archivio() ? 'La rubrica è condivisa con PiGreco Archivio.' : 'La rubrica è in comune per tutti gli utenti della webmail.';
+        if (!confirm(`Eliminare "${this.nomeCompleto(c)}" dalla rubrica?\n\n${condivisa}`)) return;
         try {
-            await ArchiviaEmail.api(`/agenda/${Number(c.id)}`, { method: 'DELETE' });
+            await this.cancella(c);
             showToast('Contatto eliminato', 'success');
             await this.carica();
             this.disegnaRighe();
@@ -410,7 +449,7 @@ const ContattiRubrica = {
 
     /**
      * Lettura: se il mittente non è nella rubrica, propone di aggiungerlo con una
-     * riga sopra l'email. Solo se si è già collegati all'archivio (non chiede
+     * riga sopra l'email. Con l'archivio solo se si è già collegati (non chiede
      * l'accesso) e con un ruolo che può creare contatti.
      */
     async proponiMittente(da) {
@@ -420,7 +459,7 @@ const ContattiRubrica = {
         const mittente = this.mittente(da);
         this.mittenteCorrente = mittente ? mittente.email : '';
         this.mittenteTesto = mittente && mittente.nome ? `${mittente.nome} <${mittente.email}>` : this.mittenteCorrente;
-        if (!mittente || !this.disponibile() || !(await this.suggerimentiPronti())) return;
+        if (!mittente || !(await this.suggerimentiPronti())) return;
         this.aggiornaBanner();
     },
 
@@ -448,7 +487,7 @@ const ContattiRubrica = {
 
     /** Dopo l'invio: propone di aggiungere i destinatari che non sono nella rubrica */
     async proponiDestinatari(testo) {
-        if (!this.disponibile() || !(await this.suggerimentiPronti()) || !this.puoModificare(null)) return;
+        if (!(await this.suggerimentiPronti()) || !this.puoModificare(null)) return;
         const visti = new Set();
         const nuovi = this.indirizzi(testo).filter(x => {
             const e = x.email.toLowerCase();
@@ -516,11 +555,7 @@ const ContattiRubrica = {
             let aggiunti = 0;
             try {
                 for (const dati of scelti) {
-                    await ArchiviaEmail.api('/agenda', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(dati),
-                    });
+                    await this.scrivi(null, dati);
                     aggiunti++;
                 }
             } catch (e) {
@@ -543,8 +578,19 @@ const ContattiRubrica = {
     // ---------------------------------------------------------------- suggerimenti in "A", "Cc" e "Ccn"
 
     async suggerimentiPronti() {
-        if (!this.disponibile()) return false;
         if (this.caricati && Date.now() - this.caricati < 5 * 60 * 1000) return true;
+        if (!this.archivio()) {
+            // Se la rubrica non risponde si riprova dopo un minuto, non a ogni tasto
+            if (this.senzaSessione && Date.now() - this.senzaSessione < 60 * 1000) return false;
+            try {
+                await this.carica();
+                this.senzaSessione = 0;
+                return true;
+            } catch (e) {
+                this.senzaSessione = Date.now();
+                return false;
+            }
+        }
         // Senza accesso all'archivio si riprova dopo un minuto, non a ogni tasto o email aperta
         if (this.senzaSessione && Date.now() - this.senzaSessione < 60 * 1000) return false;
         try {
@@ -682,7 +728,6 @@ function showContatti() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (!ContattiRubrica.disponibile()) return;
     ['composeTo', 'composeCc', 'composeBcc'].forEach(id => ContattiRubrica.collegaSuggerimenti(document.getElementById(id)));
     const da = document.getElementById('aggiungiMittenteBtn');
     if (da) {

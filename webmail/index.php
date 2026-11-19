@@ -157,11 +157,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     <div class="settings-item" onclick="apriAspetto()">
                         <i class="fas fa-palette"></i> Aspetto
                     </div>
-                    <?php if ($archivioCollegato): ?>
                     <div class="settings-item" onclick="showContatti()">
                         <i class="fas fa-address-book"></i> Contatti
                     </div>
-                    <?php endif; ?>
                     <div class="settings-item" onclick="FiltriEmail.apri()">
                         <i class="fas fa-filter"></i> Filtri
                     </div>
@@ -1028,7 +1026,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <script src="email_editor.js?v=2"></script>
     <script src="archivio.js?v=2.4"></script>
     <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
-    <script src="contatti.js?v=2"></script>
+    <script src="contatti.js?v=3"></script>
     <script src="selezione.js?v=3"></script>
     <script src="ricerca.js?v=2"></script>
     <script src="bozze.js?v=2"></script>
@@ -4135,7 +4133,7 @@ function toggleSettingsDropdown(event) {
         }
     }
 
-    // Contatti: showContatti() è in contatti.js (rubrica di PiGreco Archivio)
+    // Contatti: showContatti() è in contatti.js (rubrica della webmail o di PiGreco Archivio)
 
     // Chiudi menu impostazioni durante lo scroll
     window.addEventListener('scroll', function() {
