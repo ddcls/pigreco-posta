@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.7 · novembre 2026
+Versione 1.8 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -466,6 +466,8 @@ L'amministratore della webmail gestisce caselle e utenti dal menu utente → **I
   visibili a tutti o assegnate a loro.
 - **Log Accessi**: elenco degli accessi alla webmail, riusciti e falliti (anche i codici di verifica
   sbagliati).
+- **Email doppie**: trova le email presenti più volte nella stessa cartella e sposta le copie in più
+  nel Cestino (paragrafo 9.2).
 
 ### 9.1 Il codice di verifica (secondo fattore)
 
@@ -506,6 +508,25 @@ da fuori l'utente inquadra un nuovo QR. Il vecchio telefono non serve più a nie
 > mandare l'indirizzo vero del visitatore nell'intestazione `X-Forwarded-For`: la webmail lo
 > accetta solo dalle reti di Docker. Se l'indirizzo pubblico serve anche un altro programma, metti
 > `WEBMAIL_COOKIE_PATH=/webmail/`.
+
+### 9.2 Email doppie in una cartella
+
+Una cartella può riempirsi di email doppie, per esempio dopo aver copiato la posta da un vecchio
+server o dopo aver applicato un filtro alle email già arrivate quando le stesse email erano già
+nella cartella. In **Impostazioni › Email doppie**:
+
+1. scegli la **Casella** e la **Cartella**;
+2. premi **Cerca doppioni**: compare quante email hanno delle copie e l'elenco (data, mittente,
+   oggetto, numero di copie). Con molte email (decine di migliaia) il controllo dura qualche minuto;
+3. premi **Sposta … copie nel Cestino** e conferma.
+
+Due email sono doppie se hanno lo stesso **Message-ID** (il codice che ogni email riceve quando
+parte) e lo stesso oggetto; un'email senza Message-ID è doppia di un'altra con stessi data,
+mittente, oggetto e grandezza. Di ogni email resta la copia arrivata per prima nella cartella, che
+prende i segni **letta**, **importante** e **risposta** delle altre. Le copie vanno nel
+**Cestino**: niente si cancella definitivamente, e un'email spostata per errore si rimette a posto
+dal Cestino. Nel Cestino il controllo mostra i doppioni ma non sposta niente: lì si cancellano a
+mano.
 
 ---
 

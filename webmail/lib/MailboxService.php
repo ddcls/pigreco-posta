@@ -761,6 +761,104 @@ class MailboxService {
         return count($found);
     }
 
+    // ==================== EMAIL DOPPIE ====================
+
+    /** Oltre questo numero di email una cartella non si controlla (risposta troppo lenta). */
+    const MAX_EMAIL_DOPPIE = 150000;
+
+    /**
+     * Gruppi di email uguali nella cartella. Due email sono uguali con lo stesso Message-ID e oggetto; senza
+     * Message-ID con stessi data, mittente, oggetto e grandezza (stessa regola della migrazione da un vecchio
+     * server). Di ogni gruppo si tiene la copia arrivata per prima nella cartella (UID più basso).
+     * @return array ['totale' => email nella cartella, 'gruppi' => lista di ['tieni' => uid, 'copie' => uid[],
+     *               'oggetto', 'mittente', 'data', 'flag' => flag \Seen \Flagged \Answered di tutte le copie]]
+     */
+    public function duplicates($logical) {
+        if ($this->open($logical, true) === null) {
+            throw new ImapException("La cartella '{$logical}' non esiste su questo account");
+        }
+        $uids = $this->imap()->uidSearch('ALL');
+        if (count($uids) > self::MAX_EMAIL_DOPPIE) {
+            throw new ImapException('La cartella ha troppe email per il controllo (più di '
+                . number_format(self::MAX_EMAIL_DOPPIE, 0, ',', '.') . ')');
+        }
+        sort($uids);
+        $gruppi = [];
+        foreach (array_chunk($uids, 1000) as $chunk) {
+            $fetched = $this->imap()->uidFetch($chunk,
+                '(UID FLAGS RFC822.SIZE BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM SUBJECT DATE)])');
+            foreach ($chunk as $uid) {
+                if (!isset($fetched[$uid])) continue;
+                $item = $fetched[$uid];
+                $blocco = '';
+                foreach ($item as $key => $value) {
+                    if (strpos($key, 'BODY[HEADER') === 0) {
+                        $blocco = (string)$value;
+                        break;
+                    }
+                }
+                $h = MailHeaders::parseBlock($blocco);
+                $oggetto = trim(MailHeaders::decode($h['subject'] ?? ''));
+                $mid = strtolower(trim((string)($h['message-id'] ?? '')));
+                $chiave = $mid !== ''
+                    ? "M\0{$mid}\0{$oggetto}"
+                    : "D\0" . trim((string)($h['date'] ?? '')) . "\0" . strtolower(trim((string)($h['from'] ?? '')))
+                        . "\0{$oggetto}\0" . (int)($item['RFC822.SIZE'] ?? 0);
+                $flags = is_array($item['FLAGS'] ?? null) ? array_map('strtoupper', $item['FLAGS']) : [];
+                if (!isset($gruppi[$chiave])) {
+                    $gruppi[$chiave] = [
+                        'tieni'    => $uid,
+                        'copie'    => [],
+                        'oggetto'  => $oggetto,
+                        'mittente' => MailHeaders::decode($h['from'] ?? ''),
+                        'data'     => MailHeaders::formatDate($h['date'] ?? '') ?? '',
+                        'flag'     => [],
+                    ];
+                } else {
+                    $gruppi[$chiave]['copie'][] = $uid;
+                }
+                foreach (['\\SEEN', '\\FLAGGED', '\\ANSWERED'] as $f) {
+                    if (in_array($f, $flags, true)) {
+                        $gruppi[$chiave]['flag'][$f] = true;
+                    }
+                }
+            }
+        }
+        $doppie = array_values(array_filter($gruppi, fn($g) => $g['copie'] !== []));
+        foreach ($doppie as &$g) {
+            $g['flag'] = array_keys($g['flag']);
+        }
+        unset($g);
+        return ['totale' => count($uids), 'gruppi' => $doppie];
+    }
+
+    /**
+     * Sposta nel Cestino le copie in più trovate da duplicates() (mai una cancellazione definitiva). La copia
+     * tenuta prende i segni letta/importante/risposta delle altre. Dal Cestino non si sposta niente.
+     * @return array ['gruppi' => email con copie, 'spostate' => copie spostate nel Cestino]
+     */
+    public function moveDuplicatesToTrash($logical) {
+        $cartella = $this->folderName($logical);
+        $cestino = $this->ensureFolder('trash');
+        if ($cartella !== null && $cartella === $cestino) {
+            throw new ImapException('Le copie sono già nel Cestino: lì si cancellano a mano');
+        }
+        $trovate = $this->duplicates($logical);
+        $this->open($logical, false);
+        $copie = [];
+        foreach ($trovate['gruppi'] as $g) {
+            $flag = array_map(fn($f) => '\\' . ucfirst(strtolower(substr($f, 1))), $g['flag']);
+            if ($flag) {
+                $this->imap()->uidStore([$g['tieni']], '+', $flag);
+            }
+            array_push($copie, ...$g['copie']);
+        }
+        foreach (array_chunk($copie, 1000) as $chunk) {
+            $this->imap()->uidMove($chunk, $cestino);
+        }
+        return ['gruppi' => count($trovate['gruppi']), 'spostate' => count($copie)];
+    }
+
     /**
      * Segna più messaggi come letti ($seen = true) o non letti.
      * @return int quante email sono state modificate

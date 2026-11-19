@@ -1,0 +1,42 @@
+/*
+ * PiGreco Posta
+ * Copyright (C) 2026 Criscione Enzo
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Questo programma è software libero: puoi ridistribuirlo e/o modificarlo
+ * secondo i termini della GNU Affero General Public License come pubblicata
+ * dalla Free Software Foundation, versione 3 della licenza o (a tua scelta)
+ * qualsiasi versione successiva.
+ *
+ * Questo programma è distribuito nella speranza che sia utile, ma SENZA
+ * ALCUNA GARANZIA; senza neppure la garanzia implicita di COMMERCIABILITÀ
+ * o di IDONEITÀ PER UN PARTICOLARE SCOPO. Vedi la GNU Affero General
+ * Public License per i dettagli.
+ *
+ * Dovresti aver ricevuto una copia della GNU Affero General Public License
+ * insieme a questo programma (file LICENSE). In caso contrario, vedi
+ * <https://www.gnu.org/licenses/>.
+ */
+
+/* Impostazioni › Email doppie (doppie.js) */
+
+.doppie-scelta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; margin-bottom: 14px; }
+.doppie-scelta label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--testo-secondario); }
+.doppie-scelta select {
+    min-width: 220px;
+    max-width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio);
+    background: var(--bianco);
+    color: var(--testo);
+}
+.doppie-stato { margin: 0 0 12px; font-size: 14px; color: var(--testo); line-height: 1.5; }
+.doppie-stato.ok { color: var(--successo, var(--testo)); }
+.doppie-stato.errore { color: var(--pericolo); }
+.doppie-nota { margin: 8px 0; font-size: 12px; color: var(--testo-tenue); }
+.doppie-sposta { margin-bottom: 12px; }
+.doppie-sposta:disabled, .doppie-cerca:disabled { opacity: .6; cursor: wait; }
+.doppie-tabella { max-height: 50vh; overflow: auto; }
+.doppie-tabella td { overflow-wrap: anywhere; }
+.doppie-num { text-align: center; white-space: nowrap; }

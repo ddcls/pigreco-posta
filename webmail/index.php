@@ -57,6 +57,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="stylesheet" href="ricerca.css?v=1">
     <link rel="stylesheet" href="telefono.css?v=1">
     <link rel="stylesheet" href="xml-allegati.css?v=2">
+    <link rel="stylesheet" href="doppie.css?v=1">
     <link rel="stylesheet" href="fontawesome/css/all.min.css">
     <script>
         // Id dell'account email selezionato (valorizzato da viewNewEmail; altrimenti
@@ -615,6 +616,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 <div class="settings-sidebar-item" data-settings-panel="log" onclick="switchSettingsPanel('log')">
                     <i class="fas fa-history"></i> Log Accessi
                 </div>
+                <div class="settings-sidebar-item" data-settings-panel="doppie" onclick="switchSettingsPanel('doppie')">
+                    <i class="fas fa-clone"></i> Email doppie
+                </div>
             </div>
 
             <!-- Contenuto pannello attivo -->
@@ -870,6 +874,9 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     </div>
                 </div>
 
+                <!-- ============ PANNELLO: EMAIL DOPPIE (doppie.js) ============ -->
+                <div id="settingsPanelDoppie" class="settings-panel"></div>
+
                 <!-- ============ PANNELLO: LOG ACCESSI (nuovo) ============ -->
                 <div id="settingsPanelLog" class="settings-panel">
                     <div class="identita-actions">
@@ -1031,6 +1038,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <script src="tema.js?v=1"></script>
     <script src="telefono.js?v=1"></script>
     <script src="xml-allegati.js?v=2"></script>
+    <?php if (isAdmin()): ?><script src="doppie.js?v=1"></script><?php endif; ?>
         
     <script>
         let currentEmailFile = '';
@@ -4246,7 +4254,7 @@ function toggleSettingsDropdown(event) {
     }
 
     /**
-     * Attiva il pannello indicato ('mailaccounts', 'account' o 'log') nella
+     * Attiva il pannello indicato ('mailaccounts', 'account', 'log' o 'doppie') nella
      * sidebar della finestra Impostazioni, e carica i relativi dati.
      */
     function switchSettingsPanel(panelName) {
@@ -4260,7 +4268,8 @@ function toggleSettingsDropdown(event) {
         const panelIds = {
             mailaccounts: 'settingsPanelMailAccounts',
             account: 'settingsPanelAccount',
-            log: 'settingsPanelLog'
+            log: 'settingsPanelLog',
+            doppie: 'settingsPanelDoppie'
         };
         const panelEl = document.getElementById(panelIds[panelName] || panelIds.mailaccounts);
         if (panelEl) panelEl.classList.add('active');
@@ -4269,6 +4278,8 @@ function toggleSettingsDropdown(event) {
             loadWebUsers();
         } else if (panelName === 'log') {
             loadAccessLog();
+        } else if (panelName === 'doppie') {
+            DoppieEmail.mostra(document.getElementById('settingsPanelDoppie'));
         } else {
             loadMailAccounts();
         }
