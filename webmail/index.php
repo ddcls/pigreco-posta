@@ -345,6 +345,17 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                         <div id="bannerContatto" class="banner-contatto" hidden></div>
                     </div>
 
+                    <!-- Allegati: in testa, prima del corpo (come Roundcube), visibili subito -->
+                    <div id="attachmentsSection" class="attachments-section" style="display:none;">
+                        <div class="attachments-header">
+                            <h3><i class="fas fa-paperclip"></i> Allegati</h3>
+                            <button id="downloadAllBtn" class="btn-download-all" onclick="downloadAllAttachments()" style="display:none;">
+                                <i class="fas fa-file-archive"></i> Scarica tutti (.zip)
+                            </button>
+                        </div>
+                        <div id="attachmentsList" class="attachments-grid"></div>
+                    </div>
+
                     <!-- Corpo email -->
                     <div class="email-body-container">
                         <div class="email-body-tabs">
@@ -373,17 +384,6 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                                 <pre id="detailBodyText" class="email-text-body"></pre>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Allegati -->
-                    <div id="attachmentsSection" class="attachments-section" style="display:none;">
-                        <div class="attachments-header">
-                            <h3><i class="fas fa-paperclip"></i> Allegati</h3>
-                            <button id="downloadAllBtn" class="btn-download-all" onclick="downloadAllAttachments()" style="display:none;">
-                                <i class="fas fa-file-archive"></i> Scarica tutti (.zip)
-                            </button>
-                        </div>
-                        <div id="attachmentsList" class="attachments-grid"></div>
                     </div>
                 </div>
 
@@ -1729,9 +1729,14 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     // resterebbe fisso all'altezza minima da CSS, "piccolo" per email
                     // corte e tagliato per email lunghe): richiede allow-same-origin nel
                     // sandbox, sicuro perché non è concesso allow-scripts.
+                    // Prima si riporta l'iframe all'altezza minima: scrollHeight non è mai minore
+                    // dell'altezza attuale dell'iframe, quindi dopo un'email lunga quelle corte
+                    // restavano altissime (spazio vuoto enorme, visto su Windows).
+                    htmlBodyDiv.style.height = '150px';
                     htmlBodyDiv.onload = function() {
                         try {
-                            const h = htmlBodyDiv.contentWindow.document.documentElement.scrollHeight;
+                            const doc = htmlBodyDiv.contentWindow.document;
+                            const h = Math.max(doc.body ? doc.body.scrollHeight : 0, doc.documentElement.scrollHeight);
                             htmlBodyDiv.style.height = Math.max(h, 150) + 'px';
                             // Anche i link con un target proprio: nuova scheda, senza
                             // accesso a questa pagina (noopener); le ancore interne restano.

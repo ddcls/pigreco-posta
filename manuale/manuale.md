@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.11 · novembre 2026
+Versione 1.12 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -263,8 +263,9 @@ testo e allegati.
    webmail; durante una ricerca il filtro non vale (la ricerca guarda tutte le email).
 3. Il testo si vede come è stato scritto (**HTML**); con **Testo** lo vedi in forma semplice. I
    collegamenti nel testo si aprono in una nuova scheda.
-4. Gli allegati sono in fondo: 👁 mostra l'anteprima di immagini, PDF e file XML, ⬇ scarica il
-   file, **Scarica tutti (.zip)** li scarica insieme.
+4. Gli allegati sono in alto, subito sotto mittente e data, prima del testo: 👁 mostra
+   l'anteprima di immagini, PDF e file XML, ⬇ scarica il file, **Scarica tutti (.zip)** li scarica
+   insieme.
 
 **Ricevute PEC, notifiche e fatture elettroniche (file XML).** Con 👁 su un allegato `.xml` o
 `.xml.p7m` lo leggi senza scaricarlo, scritto in italiano chiaro:
@@ -285,7 +286,7 @@ fallito", "Mail delivery failed", "Delivery Status Notification"). In cima alla 
 webmail mostra un riquadro con l'indirizzo a cui non è arrivata, il motivo dato dal server del
 destinatario (per esempio `550 Invalid Recipient` = indirizzo inesistente) e oggetto e data
 dell'email originale. Sotto ci sono il testo del gestore, i **Dati della consegna** e le
-intestazioni dell'**Email originale**; i suoi allegati restano in fondo.
+intestazioni dell'**Email originale**; i suoi allegati restano in alto, come in ogni email.
 
 I pulsanti sopra l'email:
 
