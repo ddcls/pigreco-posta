@@ -47,7 +47,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="temi.css?v=1">
-    <link rel="stylesheet" href="style.css?v=2.3">
+    <link rel="stylesheet" href="style.css?v=2.4">
     <link rel="stylesheet" href="archivio.css?v=2.1">
     <link rel="stylesheet" href="contatti.css?v=4">
     <link rel="stylesheet" href="filtri.css?v=1">
@@ -1037,6 +1037,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <script src="email_editor.js?v=3"></script>
     <script src="archivio.js?v=2.4"></script>
     <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
+    <script src="corpo-email.js?v=1"></script>
     <script src="contatti.js?v=5"></script>
     <script src="selezione.js?v=3"></script>
     <script src="ricerca.js?v=2"></script>
@@ -1213,7 +1214,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
 
     /**
      * Costruisce un documento HTML minimale per il rendering del corpo email
-     * dentro l'iframe sandboxato #detailBodyHtml (o l'anteprima di stampa).
+     * dentro l'iframe sandboxato #detailBodyHtml (la stampa è in corpo-email.js).
      * L'HTML dell'email non viene MAI inserito nel documento principale
      * dell'app: un mittente potrebbe includere un tag <base> che dirotta
      * tutte le richieste fetch relative della pagina, o script/handler
@@ -1227,7 +1228,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
             + '<base target="_blank"><meta name="referrer" content="no-referrer"><style>'
             + 'body{font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;margin:0;padding:12px;word-wrap:break-word;overflow-wrap:break-word;}'
             + 'img{max-width:100%;height:auto;}'
-            + '</style></head><body>' + (bodyHtml || '') + '</body></html>';
+            + '</style><style>' + CorpoEmail.css('body') + '</style></head><body>' + (bodyHtml || '') + '</body></html>';
     }
 
     /**
@@ -1725,19 +1726,14 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                     // Mostra corpo email
                     const htmlBodyDiv = document.getElementById('detailBodyHtml');
                     const textBodyPre = document.getElementById('detailBodyText');
-                    // Ridimensiona l'iframe all'altezza reale del contenuto (altrimenti
-                    // resterebbe fisso all'altezza minima da CSS, "piccolo" per email
-                    // corte e tagliato per email lunghe): richiede allow-same-origin nel
-                    // sandbox, sicuro perché non è concesso allow-scripts.
-                    // Prima si riporta l'iframe all'altezza minima: scrollHeight non è mai minore
-                    // dell'altezza attuale dell'iframe, quindi dopo un'email lunga quelle corte
-                    // restavano altissime (spazio vuoto enorme, visto su Windows).
+                    // Corpo adattato alla larghezza del riquadro e iframe alto quanto il corpo
+                    // (corpo-email.js): richiede allow-same-origin nel sandbox, sicuro
+                    // perché non è concesso allow-scripts.
                     htmlBodyDiv.style.height = '150px';
                     htmlBodyDiv.onload = function() {
                         try {
-                            const doc = htmlBodyDiv.contentWindow.document;
-                            const h = Math.max(doc.body ? doc.body.scrollHeight : 0, doc.documentElement.scrollHeight);
-                            htmlBodyDiv.style.height = Math.max(h, 150) + 'px';
+                            CorpoEmail.adattaIframe(htmlBodyDiv);
+                            CorpoEmail.osserva(htmlBodyDiv);
                             // Anche i link con un target proprio: nuova scheda, senza
                             // accesso a questa pagina (noopener); le ancore interne restano.
                             htmlBodyDiv.contentWindow.document.querySelectorAll('a[href], area[href]').forEach(function(a) {
@@ -2237,86 +2233,21 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 return;
             }
             
-            // Crea una finestra di anteprima di stampa
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
-
-            // Ottieni i dati dell'email (escape: questi valori tornano da .textContent
-            // e vengono re-inseriti come HTML più sotto con document.write, quindi vanno
-            // ri-sanificati per evitare injection tramite un oggetto/mittente malevolo)
-            const subject = escapeHtml(document.getElementById('detailSubject').textContent || '(nessun oggetto)');
-            const from = escapeHtml(document.getElementById('detailFrom').textContent || 'Sconosciuto');
-            const to = escapeHtml(document.getElementById('detailTo').textContent || 'Sconosciuto');
-            const date = escapeHtml(document.getElementById('detailDate').textContent || 'Data sconosciuta');
-            // Il corpo HTML dell'email resta non fidato: non va scritto direttamente in
-            // questa finestra (stessa origine dell'app, quindi con pieni privilegi) ma
-            // isolato in un iframe sandboxato, come nella vista principale.
-            const rawHtmlBody = (currentEmailData && currentEmailData.html_body) || '';
-
-            // Costruisci il contenuto per la stampa - SENZA TAG SCRIPT
-            var printContent = '<!DOCTYPE html>';
-            printContent += '<html>';
-            printContent += '<head>';
-            printContent += '<title>Stampa Email</title>';
-            printContent += '<style>';
-            printContent += 'body { font-family: Arial, sans-serif; margin: 40px; color: #333; }';
-            printContent += '.print-header { border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }';
-            printContent += '.print-header h1 { color: #3b82f6; margin-bottom: 10px; font-size: 24px; }';
-            printContent += '.print-meta { display: grid; grid-template-columns: max-content 1fr; gap: 8px 15px; font-size: 14px; }';
-            printContent += '.print-meta strong { color: #666; }';
-            printContent += '.print-body { line-height: 1.6; }';
-            printContent += '.print-footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #999; }';
-            printContent += '#printBodyFrame { width: 100%; border: none; }';
-            printContent += '@media print { body { margin: 0; } .no-print { display: none; } }';
-            printContent += '</style>';
-            printContent += '</head>';
-            printContent += '<body>';
-            printContent += '<div class="print-header">';
-            printContent += '<h1>' + subject + '</h1>';
-            printContent += '<div class="print-meta">';
-            printContent += '<strong>Da:</strong><span>' + from + '</span>';
-            printContent += '<strong>A:</strong><span>' + to + '</span>';
-            printContent += '<strong>Data:</strong><span>' + date + '</span>';
-            printContent += '</div>';
-            printContent += '</div>';
-            printContent += '<div class="print-body">';
-            // sandbox="allow-same-origin" (senza allow-scripts): il nostro script può
-            // leggere l'altezza del contenuto per dimensionare l'iframe prima di stampare,
-            // ma nulla dentro l'email può eseguire codice o alterare questa finestra.
-            printContent += '<iframe id="printBodyFrame" sandbox="allow-same-origin" referrerpolicy="no-referrer"></iframe>';
-            printContent += '</div>';
-            printContent += '<div class="print-footer">';
-            printContent += '<div class="no-print" style="margin-bottom: 20px;">';
-            printContent += '<button onclick="window.print()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer;">';
-            printContent += '🖨️ Stampa';
-            printContent += '</button>';
-            printContent += '<button onclick="window.close()" style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">';
-            printContent += '✕ Chiudi';
-            printContent += '</button>';
-            printContent += '</div>';
-            printContent += '<p>Email stampata il ' + new Date().toLocaleString('it-IT') + '</p>';
-            printContent += '</div>';
-            // RIMOSSO COMPLETAMENTE IL TAG <script> - NON NECESSARIO
-            printContent += '</body>';
-            printContent += '</html>';
-            
-            printWindow.document.write(printContent);
-            printWindow.document.close();
-
-            // Popola l'iframe sandboxato con il corpo email e ridimensiona
-            // all'altezza del contenuto (altrimenti la stampa taglierebbe
-            // tutto ciò che eccede l'altezza di default dell'iframe)
-            const printFrame = printWindow.document.getElementById('printBodyFrame');
-            if (printFrame) {
-                printFrame.addEventListener('load', function() {
-                    try {
-                        const h = printFrame.contentWindow.document.documentElement.scrollHeight;
-                        printFrame.style.height = h + 'px';
-                    } catch (e) {
-                        printFrame.style.height = '600px';
-                    }
-                });
-                printFrame.srcdoc = buildEmailIframeDoc(rawHtmlBody || '<p><em>Nessun contenuto disponibile</em></p>');
+            // Finestra di anteprima: corpo dell'email adattato al foglio (corpo-email.js)
+            const printWindow = window.open('', '_blank', 'width=820,height=700');
+            if (!printWindow) {
+                showToast('Il browser ha bloccato la finestra di stampa: consentire i popup per questo sito', 'error');
+                return;
             }
+            const testo = id => document.getElementById(id).textContent;
+            CorpoEmail.stampa(printWindow, {
+                oggetto: testo('detailSubject') || '(nessun oggetto)',
+                da: testo('detailFrom') || 'Sconosciuto',
+                a: testo('detailTo') || 'Sconosciuto',
+                data: testo('detailDate') || 'Data sconosciuta',
+                html: (currentEmailData && currentEmailData.html_body) || '',
+                testo: (currentEmailData && currentEmailData.text_body) || ''
+            });
 
             // Focus dalla finestra principale (sufficiente)
             printWindow.focus();

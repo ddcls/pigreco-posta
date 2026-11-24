@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.12.1 · novembre 2026
+Versione 1.13 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -281,6 +281,11 @@ testo e allegati.
 la firma non viene controllata: per verificarla scaricali e aprili con il programma della firma
 digitale.
 
+**Email larghe.** Il testo dell'email sta sempre dentro il riquadro: le tabelle e le immagini troppo
+larghe vengono strette o un po' rimpicciolite, e le righe e gli indirizzi lunghi vanno a capo. Se
+allarghi il riquadro o la finestra, l'email si riadatta da sola. Lo stesso vale per la stampa, su un
+foglio A4: nell'anteprima vedi l'email come uscirà.
+
 **Email non recapitate.** Quando un'email non arriva, il gestore manda una notifica ("Recapito
 fallito", "Mail delivery failed", "Delivery Status Notification"). In cima alla notifica la
 webmail mostra un riquadro con l'indirizzo a cui non è arrivata, il motivo dato dal server del
@@ -296,7 +301,7 @@ I pulsanti sopra l'email:
 | **Inoltra** | Inoltra l'email ad altri, con i suoi allegati |
 | ✉ | Segna l'email come **non letta** |
 | ⬇ | Salva l'email sul computer: **OK** = file `.eml` completo, **Annulla** = solo testo `.txt` |
-| 🖨 | Stampa l'email |
+| 🖨 | Stampa l'email, adattata al foglio |
 | ☆ / ⭐ | Segna l'email come **importante** o la toglie dalle importanti |
 | 📂 | Sposta l'email in un'altra cartella |
 | Imbuto | Crea un **filtro** per questo mittente (capitolo 7) |

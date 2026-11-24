@@ -683,7 +683,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accento); }
 .email-text-body {
     margin: 0;
     white-space: pre-wrap;
-    word-wrap: break-word;
+    overflow-wrap: anywhere;
     font-family: var(--font-testo);
     font-size: 14px;
     line-height: 1.6;
