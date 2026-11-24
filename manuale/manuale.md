@@ -1,6 +1,6 @@
 # PiGreco Posta — Manuale
 
-Versione 1.12 · novembre 2026
+Versione 1.12.1 · novembre 2026
 
 PiGreco Posta fa due cose:
 
@@ -449,8 +449,6 @@ possono aggiungere, modificare ed eliminare i contatti.
 - **Scrivendo**: in **A**, **Cc** e **Ccn** compaiono dal primo carattere i contatti che
   corrispondono, e il primo indirizzo che inizia così viene completato nel campo (Tab o Invio
   per accettarlo, Esc per toglierlo, le frecce per sceglierne un altro).
-- **Dopo l'invio**: se fra i destinatari ci sono indirizzi nuovi, la webmail propone di
-  aggiungerli, con nome e cognome da controllare.
 - **Importa** (nella finestra Contatti) aggiunge i contatti di un file CSV: quello esportato da qui,
   da **Outlook**, da **Google Contatti** o da **Thunderbird**, oppure un foglio Excel salvato come
   CSV con la prima riga di intestazione (`Nome;Cognome;Azienda;Categoria;Email;Telefono;Sito
@@ -459,7 +457,7 @@ possono aggiungere, modificare ed eliminare i contatti.
   contatti; poi **Importa** li aggiunge. I contatti già in rubrica (stesso indirizzo email) non
   vengono cambiati; senza nome e cognome si usa il nome visualizzato, l'azienda o l'indirizzo.
 - Ogni indirizzo email sta in un solo contatto. Gli indirizzi per cui rispondi **No, grazie**
-  (o che togli dalla proposta) non vengono più proposti in quel browser; non vengono mai
+  non vengono più proposti in quel browser; non vengono mai
   proposti i propri indirizzi e quelli automatici (noreply, mailer-daemon, posta-certificata…).
 
 Con PiGreco Archivio collegato, la rubrica è invece quella dell'archivio (vedi il capitolo 13).

@@ -288,42 +288,6 @@
     font-size: 12px;
 }
 
-/* Dopo l'invio: destinatari da aggiungere */
-.contatti-proposta { max-width: 640px; }
-
-.proposta-riga {
-    display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr;
-    gap: 8px;
-    align-items: center;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--bordo);
-}
-
-.proposta-email {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
-    min-width: 0;
-    text-align: left;
-    overflow-wrap: anywhere;
-    font-size: 13px;
-}
-
-.proposta-email input {
-    flex: none;
-    width: auto;
-    margin: 0;
-}
-
-.proposta-riga.esclusa input[type="text"] { opacity: .45; }
-
-@media (max-width: 640px) {
-    .proposta-riga { grid-template-columns: 1fr 1fr; }
-    .proposta-email { grid-column: 1 / -1; }
-}
-
 /* Importazione da CSV */
 .contatti-importa code {
     font-size: 12px;

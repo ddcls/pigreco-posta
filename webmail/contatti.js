@@ -42,7 +42,6 @@
  *   se si è già collegati: non chiede l'accesso).
  * - Lettura: il pulsante accanto al mittente lo aggiunge alla rubrica; se il
  *   mittente non c'è, una riga sopra l'email propone "Aggiungi / No, grazie".
- * - Dopo l'invio: propone di aggiungere i destinatari che non sono in rubrica.
  *   Gli indirizzi rifiutati non vengono più proposti (localStorage del browser).
  */
 
@@ -457,7 +456,6 @@ const ContattiRubrica = {
     CHIAVE_IGNORATI: 'webmail.contatti.ignorati',
     mittenteCorrente: '',
     mittenteTesto: '',
-    proposta: null,
 
     /** Indirizzi per cui l'utente ha risposto "No, grazie" (solo in questo browser) */
     ignorati() {
@@ -519,17 +517,6 @@ const ContattiRubrica = {
             !/^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|bounces?|posta-certificata)([+._-]|@)/.test(e);
     },
 
-    /** Nome e cognome proposti: dal nome visualizzato o dalla parte prima della @ */
-    nomeCognome(email, nome) {
-        let parti = String(nome || '').trim().split(/\s+/).filter(Boolean);
-        if (!parti.length) {
-            parti = email.split('@')[0].split(/[._-]+/).filter(p => p && !/^\d+$/.test(p))
-                .map(p => p.charAt(0).toUpperCase() + p.slice(1));
-        }
-        if (parti.length < 2) return { nome: parti[0] || '', cognome: '' };
-        return { nome: parti.slice(0, -1).join(' '), cognome: parti[parti.length - 1] };
-    },
-
     /**
      * Lettura: se il mittente non è nella rubrica, propone di aggiungerlo con una
      * riga sopra l'email. Con l'archivio solo se si è già collegati (non chiede
@@ -566,96 +553,6 @@ const ContattiRubrica = {
             riga.hidden = true;
         });
         riga.hidden = false;
-    },
-
-    /** Dopo l'invio: propone di aggiungere i destinatari che non sono nella rubrica */
-    async proponiDestinatari(testo) {
-        if (!(await this.suggerimentiPronti()) || !this.puoModificare(null)) return;
-        const visti = new Set();
-        const nuovi = this.indirizzi(testo).filter(x => {
-            const e = x.email.toLowerCase();
-            if (visti.has(e) || !this.daProporre(e)) return false;
-            visti.add(e);
-            return true;
-        });
-        if (nuovi.length) this.mostraProposta(nuovi);
-    },
-
-    mostraProposta(nuovi) {
-        this.proposta?.remove();
-        const overlay = document.createElement('div');
-        overlay.className = 'compose-modal-overlay contatti-overlay';
-        overlay.innerHTML = `
-            <div class="compose-modal contatti-modal contatti-proposta">
-                <div class="compose-modal-header">
-                    <h3><i class="fas fa-user-plus"></i> Aggiungere ai contatti?</h3>
-                    <button class="btn-close-compose" type="button" title="Chiudi"><i class="fas fa-times"></i></button>
-                </div>
-                <form class="contatti-corpo">
-                    <p class="archivia-nota">${nuovi.length === 1 ? 'Questo indirizzo non è' : 'Questi indirizzi non sono'} nella rubrica.
-                    Controlla nome e cognome; gli indirizzi non spuntati non verranno più proposti.</p>
-                    ${nuovi.map((x, i) => {
-                        const n = this.nomeCognome(x.email, x.nome);
-                        return `
-                        <div class="proposta-riga" data-i="${i}">
-                            <label class="proposta-email"><input type="checkbox" checked> ${this.esc(x.email)}</label>
-                            <input type="text" name="nome" placeholder="Nome" maxlength="100" value="${this.esc(n.nome)}">
-                            <input type="text" name="cognome" placeholder="Cognome" maxlength="100" value="${this.esc(n.cognome)}">
-                        </div>`;
-                    }).join('')}
-                    <div class="contatti-azioni-modulo">
-                        <button type="button" class="archivia-btn-secondario" data-azione="dopo">Non ora</button>
-                        <button type="submit" class="archivia-btn-primario"><i class="fas fa-save"></i> Aggiungi</button>
-                    </div>
-                </form>
-            </div>`;
-        const chiudi = () => { overlay.remove(); this.proposta = null; };
-        overlay.querySelector('.btn-close-compose').addEventListener('click', chiudi);
-        overlay.querySelector('[data-azione="dopo"]').addEventListener('click', chiudi);
-        overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') chiudi(); });
-        overlay.querySelectorAll('.proposta-riga').forEach(riga => {
-            const spunta = riga.querySelector('[type="checkbox"]');
-            spunta.addEventListener('change', () => riga.classList.toggle('esclusa', !spunta.checked));
-        });
-        const form = overlay.querySelector('form');
-        form.addEventListener('submit', async (ev) => {
-            ev.preventDefault();
-            const scelti = [], scartati = [];
-            for (const riga of form.querySelectorAll('.proposta-riga')) {
-                const x = nuovi[Number(riga.dataset.i)];
-                if (!riga.querySelector('[type="checkbox"]').checked) { scartati.push(x.email); continue; }
-                const nome = riga.querySelector('[name="nome"]').value.trim();
-                const cognome = riga.querySelector('[name="cognome"]').value.trim();
-                if (!nome && !cognome) {
-                    showToast(`Inserisci almeno nome o cognome per ${x.email}`, 'error');
-                    riga.querySelector('[name="nome"]').focus();
-                    return;
-                }
-                scelti.push({ nome, cognome, email: x.email, categoria: 'Altro' });
-            }
-            const pulsante = form.querySelector('[type="submit"]');
-            pulsante.disabled = true;
-            let aggiunti = 0;
-            try {
-                for (const dati of scelti) {
-                    await this.scrivi(null, dati);
-                    aggiunti++;
-                }
-            } catch (e) {
-                showToast(`Contatto ${scelti[aggiunti].email} non salvato: ${e.message}`, 'error');
-            }
-            this.ignora(scartati);
-            if (aggiunti) {
-                showToast(aggiunti === 1 ? 'Contatto aggiunto alla rubrica' : `${aggiunti} contatti aggiunti alla rubrica`, 'success');
-                await this.carica().catch(() => {});
-                this.aggiornaBanner();
-            }
-            if (aggiunti === scelti.length) chiudi();
-            else pulsante.disabled = false;
-        });
-        document.body.appendChild(overlay);
-        this.proposta = overlay;
-        form.querySelector('[type="submit"]').focus();
     },
 
     // ---------------------------------------------------------------- suggerimenti in "A", "Cc" e "Ccn"

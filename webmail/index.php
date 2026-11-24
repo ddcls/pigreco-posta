@@ -49,7 +49,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <link rel="stylesheet" href="temi.css?v=1">
     <link rel="stylesheet" href="style.css?v=2.3">
     <link rel="stylesheet" href="archivio.css?v=2.1">
-    <link rel="stylesheet" href="contatti.css?v=3">
+    <link rel="stylesheet" href="contatti.css?v=4">
     <link rel="stylesheet" href="filtri.css?v=1">
     <link rel="stylesheet" href="firme.css?v=1">
     <link rel="stylesheet" href="selezione.css?v=3">
@@ -1037,7 +1037,7 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
     <script src="email_editor.js?v=3"></script>
     <script src="archivio.js?v=2.4"></script>
     <script src="vendor/dompurify/purify.min.js?v=3.2.4"></script>
-    <script src="contatti.js?v=4"></script>
+    <script src="contatti.js?v=5"></script>
     <script src="selezione.js?v=3"></script>
     <script src="ricerca.js?v=2"></script>
     <script src="bozze.js?v=2"></script>
@@ -3798,9 +3798,6 @@ $nomeUtente = (string)($_SESSION['username'] ?? '');
                 if (data.success) {
                     showToast(data.message, 'success');
                     if (typeof BozzeEmail !== 'undefined') BozzeEmail.dopoInvio();
-                    if (typeof ContattiRubrica !== 'undefined') {
-                        ContattiRubrica.proponiDestinatari([to, formData.get('cc'), formData.get('bcc')].join(','));
-                    }
                     
                     // ✅ PULIZIA COMPLETA SOLO DOPO INVIO RIUSCITO
                     const composeModal = document.getElementById('composeModal');
